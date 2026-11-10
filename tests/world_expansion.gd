@@ -88,7 +88,7 @@ func run_tests() -> void:
 	game.player_pos = Vector2(13615, 500)
 	game.update_player(0.016)
 	if not check(game.hp < game.max_hp, "Poison pools cause gameplay damage"): return
-	if not check(game.expansion_completed and game.unlocked_portal_count() == 4, "Final guardian restores all realms"): return
+	if not check(game.expansion_completed and game.unlocked_portal_count() == game.PORTAL_NAMES.size(), "Final guardian restores all realms"): return
 	game.save_game()
 	if not check(game.load_game() and game.expansion_completed and game.world_bosses_cleared.all(func(x): return x), "New-world bosses and unlocks persist across save/load"): return
 	for kind in guardian_types:
