@@ -68,9 +68,9 @@ func handle_menu_press(pos: Vector2) -> bool:
 			"back_settings":
 				game.state = settings_return
 			"heal": game.heal()
-			game.queue_redraw()
-			queue_redraw()
-			return true
+		game.queue_redraw()
+		queue_redraw()
+		return true
 	return false
 
 func box(rect: Rect2, fill: Color, border: Color = Color("6c918f"), thickness: float = 2.0) -> void:
