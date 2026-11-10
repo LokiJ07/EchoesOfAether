@@ -119,6 +119,14 @@ jobs:
           grep -Fq 'PASS: legacy save migration with original progress preserved' /tmp/godot-gameplay.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|GAME SMOKE FAILED)' /tmp/godot-gameplay.log; then exit 1; fi
 
+      - name: Validate expanded worlds, portal combat and ultra-wide controls
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/world_expansion.gd 2>&1 | tee /tmp/godot-world.log
+          grep -Fq 'PASS: ultrawide fullscreen, responsive mobile movement, portals, three realms, bosses, hazards and save/load' /tmp/godot-world.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|WORLD EXPANSION FAILED)' /tmp/godot-world.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -167,4 +175,5 @@ jobs:
             /tmp/godot-import.log
             /tmp/godot-smoke.log
             /tmp/godot-gameplay.log
+            /tmp/godot-world.log
           if-no-files-found: ignore

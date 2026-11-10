@@ -1,3 +1,29 @@
+# Echoes of Aether v0.3 — WORLDS BEYOND
+
+**Android fullscreen and playable world expansion**. Built as an upgrade for the existing game; keep the original APK installed and choose **Update** when installing the v0.3 Android APK. The same Android package ID and debug signing certificate remain in GitHub Actions.
+
+## New in v0.3
+
+- **Fullscreen support for ultrawide Android phones** with Godot Canvas Items stretch and **Expand** aspect instead of forced 16:9 letterboxing. The world camera adjusts to the real viewport width; the HUD anchors to the visible edges.
+- **Responsive movement & touch controls:** stronger left/right acceleration and top speed, easier button hit targets, a larger virtual joystick and a brief coyote-time window after running off a platform.
+- **Three additional side-scrolling world regions**, expanding the main world from 8,400 to **15,800** world units: **Crystal Hollow** (glowing quartz, cavern roof, stalactites, underground streams), **Celestial Highlands** (moving clouds, hanging islands, waterfalls, moving platforms), and **Shadowfen Marsh** (glowing fungi, marsh fog/fireflies, poisonous ground pools).
+- **Four functional portals**, one in Moonhaven Village and one in each new region. Portals have locked/unlocked visuals and an interactive travel menu. Defeat the old Star Warden to open Crystal Hollow, the Crystal Titan to unlock the Highlands, and the Sky Herald to unlock Shadowfen. The portal network never bypasses locked bosses.
+- **Three new realm bosses:** Crystal Titan, Sky Herald and Shadowfen Guardian, each with health, phase-dependent attacks, rewards, and one-time victory progression. New biome enemy variants pursue and attack the player.
+- **World Atlas** accessible through the new MAP button; shows the connected region sequence and portal unlock progress.
+- **Autosave compatible with v0.1 and v0.2:** all existing inventory, quest, gear, relic and rune progress is retained. New realm boss flags and portals default safely for older saves. Portal travel automatically saves its checkpoint.
+- **Better mobile combat:** boss health panel works for all four bosses; larger on-screen attack/jump/skill controls, floating damage, and clear interaction text.
+- **Godot CI gameplay tests** verify touchscreen motion, world gates, travel to all four destinations, the new bosses, environmental hazards, stage unlock progression, v0.2 save tests, and an Android APK signature/version check.
+
+### Getting into the new worlds
+
+1. Continue your existing save. If you already defeated the Star Warden, you are ready for the expansion.
+2. Walk to the glowing **Portal Network** gate near the end of Moonhaven Village (around world x=1720), or choose **Explore Crystal Hollow** from the Star Warden victory screen.
+3. Tap **TRAVEL**, choose an unlocked destination, and explore the next biome. Boss defeats unlock subsequent destinations. Your portal checkpoints save automatically.
+4. Visit **MAP** at the top-right to view your current region and world progression.
+
+All three new environments are connected along one continuous side-scrolling world; they are **not separate Godot scenes**. Portal travel provides practical shortcuts between their entrances.
+
+---
 # Echoes of Aether v0.2 — RELIC HUNTERS (Android)
 
 **Major playable update** with permanent exploration rewards, combat enhancements and new challenges. Compatible with existing v0.1 Android saves and install-over updates.

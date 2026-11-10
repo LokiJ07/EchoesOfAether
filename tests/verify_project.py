@@ -29,4 +29,13 @@ hud=(r/'scripts/HUD.gd').read_text()
 for symbol in ['func draw_trainer(', 'func draw_boss_health(', 'func draw_dash_button(']:
     assert symbol in hud, f"Missing Relic Hunters UI: {symbol}"
 assert 'window/handheld/orientation=4' in (r/'project.godot').read_text()
+assert 'window/stretch/aspect="expand"' in (r/'project.godot').read_text(), "Ultrawide phones must not be letterboxed"
+assert 'WORLD_WIDTH := 15800.0' in contents
+for symbol in ['func portal_jump(', 'func nearby_portal_index(', 'func active_boss_info(', 'func draw_expansion_scenery(', 'func draw_expansion_scenery(', 'func go_expansion_world(', 'func update_moving_platforms(', 'func expansion_quest_label(']:
+    assert symbol in contents, f"Missing World Expansion mechanic: {symbol}"
+for symbol in ['func draw_portal_network(', 'func draw_world_map(', 'func draw_realm_victory(']:
+    assert symbol in hud, f"Missing World Expansion UI: {symbol}"
+assert Path(r/'tests/world_expansion.gd').is_file()
+assert 'tests/world_expansion.gd' in workflow
+print("PASS: World Expansion regions, fullscreen stretch, portal UI and Godot tests")
 print("PASS: referenced assets, Android CI build/export, and landscape orientation")

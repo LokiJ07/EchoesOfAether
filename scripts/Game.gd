@@ -2,11 +2,16 @@ extends Node2D
 ## Echoes of Aether: offline, mobile-first, self-contained action adventure.
 ## All gameplay is simulated in world space. HUD stays in CanvasLayer screen space.
 
-const WORLD_WIDTH := 8400.0
+const WORLD_WIDTH := 15800.0
 const FLOOR_Y := 500.0
 const GRAVITY := 1250.0
 const SKILL_COOLDOWN := 2.25
 const CACHE_LOCATIONS = [690.0, 1940.0, 3400.0, 4560.0, 5350.0, 6780.0]
+const PORTAL_NAMES = ["MOONHAVEN", "CRYSTAL HOLLOW", "CELESTIAL HIGHLANDS", "SHADOWFEN MARSH"]
+const PORTAL_LOCATIONS = [1720.0, 8660.0, 11050.0, 13240.0]
+const PORTAL_ARRIVALS = [1635.0, 8800.0, 11190.0, 13380.0]
+const BOSS_TYPES = ["boss", "crystal_titan", "sky_herald", "marsh_guardian"]
+const WORLD_BOSS_NAMES = ["WARDEN OF THE FADING STAR", "CRYSTAL TITAN", "SKY HERALD", "SHADOWFEN GUARDIAN"]
 const HERO_IDLE = preload("res://assets/hero_idle.png")
 const HERO_RUN = preload("res://assets/hero_run.png")
 const HERO_JUMP = preload("res://assets/hero_jump.png")
@@ -58,6 +63,13 @@ var hunted_moths := 0
 var hunted_sentinels := 0
 var claimed_hunts: Array = []
 var floating_text: Array = []
+var portal_unlocked: Array = [true, false, false, false]
+var world_bosses_cleared: Array = [false, false, false]
+var expansion_completed := false
+var moving_platforms: Array = []
+var poison_pools: Array = []
+var coyote_timer := 0.0
+var portal_cooldown := 0.0
 var checkpoint_x := 145.0
 var defeated_boss := false
 var dying := false
@@ -82,6 +94,7 @@ var screen_shake := 0.0
 var boss_alert := ""
 var joystick_touch := -1
 var touch_axis := 0.0
+var joystick_base := Vector2.ZERO
 var attack_touch: Dictionary = {}
 var hold_attack := false
 var music: AudioStreamPlayer
@@ -125,9 +138,23 @@ func create_world() -> void:
 		Rect2(4310, 368, 165, 18), Rect2(4630, 420, 170, 18),
 		Rect2(5120, 420, 185, 18), Rect2(5480, 350, 160, 18),
 		Rect2(5900, 415, 178, 18), Rect2(6680, 410, 165, 18),
-		Rect2(7040, 365, 165, 18), Rect2(7410, 425, 150, 18)
+		Rect2(7040, 365, 165, 18), Rect2(7410, 425, 150, 18),
+		Rect2(8960, 420, 160, 18), Rect2(9210, 365, 145, 18),
+		Rect2(9640, 411, 160, 18), Rect2(9910, 343, 150, 18),
+		Rect2(11380, 414, 185, 18), Rect2(12070, 365, 180, 18),
+		Rect2(13680, 421, 160, 18), Rect2(14200, 382, 162, 18),
+		Rect2(14700, 420, 175, 18)
 	]
-	traps = [Rect2(2650, 494, 135, 130), Rect2(3480, 494, 150, 130), Rect2(5210, 494, 150, 130)]
+	traps = [Rect2(2650, 494, 135, 130), Rect2(3480, 494, 150, 130),
+		Rect2(5210, 494, 150, 130), Rect2(9350, 494, 120, 130),
+		Rect2(11680, 494, 130, 130), Rect2(14460, 494, 130, 130)]
+	moving_platforms = [
+		{"x": 11520.0, "width": 142.0, "base_y": 362.0, "y": 362.0, "phase": 0.2},
+		{"x": 11920.0, "width": 145.0, "base_y": 324.0, "y": 324.0, "phase": 1.7},
+		{"x": 12240.0, "width": 142.0, "base_y": 386.0, "y": 386.0, "phase": 3.2}
+	]
+	poison_pools = [Rect2(13580, 480, 114, 22), Rect2(14020, 480, 132, 22),
+		Rect2(14800, 480, 135, 22)]
 	spawn_enemies()
 
 func spawn_enemies() -> void:
@@ -144,10 +171,35 @@ func spawn_enemies() -> void:
 		add_enemy("wisp", x)
 	if not defeated_boss:
 		add_enemy("boss", 7780)
+	# The three new connected regions contain distinct enemy archetypes and bosses.
+	for x in [9040.0, 9270.0, 9700.0, 10130.0]:
+		add_enemy("crystal_bug", x)
+	for x in [9440.0, 9940.0]:
+		add_enemy("crystal_wisp", x)
+	if not world_bosses_cleared[0]:
+		add_enemy("crystal_titan", 10510.0)
+	for x in [11390.0, 11850.0, 12210.0]:
+		add_enemy("sky_wisp", x)
+	for x in [11610.0, 12350.0]:
+		add_enemy("cloud_moth", x)
+	if not world_bosses_cleared[1]:
+		add_enemy("sky_herald", 12530.0)
+	for x in [13500.0, 13880.0, 14380.0, 14840.0]:
+		add_enemy("bog_slime", x)
+	for x in [13740.0, 14530.0]:
+		add_enemy("bog_wisp", x)
+	if not world_bosses_cleared[2]:
+		add_enemy("marsh_guardian", 15310.0)
 
 func add_enemy(kind: String, x: float) -> void:
-	var life = {"slime": 30.0, "moth": 22.0, "beetle": 45.0, "sentinel": 68.0, "wisp": 30.0, "boss": 290.0}[kind]
-	var walk = {"slime": 52.0, "moth": 80.0, "beetle": 98.0, "sentinel": 42.0, "wisp": 60.0, "boss": 75.0}[kind]
+	var life = {"slime": 30.0, "moth": 22.0, "beetle": 45.0, "sentinel": 68.0, "wisp": 30.0,
+		"boss": 290.0, "crystal_bug": 76.0, "crystal_wisp": 55.0,
+		"sky_wisp": 62.0, "cloud_moth": 58.0, "bog_slime": 100.0, "bog_wisp": 74.0,
+		"crystal_titan": 430.0, "sky_herald": 515.0, "marsh_guardian": 650.0}[kind]
+	var walk = {"slime": 52.0, "moth": 80.0, "beetle": 98.0, "sentinel": 42.0, "wisp": 60.0,
+		"boss": 75.0, "crystal_bug": 102.0, "crystal_wisp": 94.0,
+		"sky_wisp": 115.0, "cloud_moth": 125.0, "bog_slime": 75.0, "bog_wisp": 93.0,
+		"crystal_titan": 85.0, "sky_herald": 115.0, "marsh_guardian": 100.0}[kind]
 	enemies.append({"type": kind, "x": x, "origin": x, "y": FLOOR_Y, "hp": life, "max_hp": life,
 		"speed": walk, "dir": -1, "cooldown": rng.randf_range(0.5, 2.0), "stun": 0.0,
 		"phase": 1, "state": "patrol", "attack_anim": 0.0, "seed_drop": kind == "slime"})
@@ -168,8 +220,10 @@ func _physics_process(dt: float) -> void:
 	dash_timer = maxf(0.0, dash_timer - dt)
 	dash_cooldown = maxf(0.0, dash_cooldown - dt)
 	skill_timer = maxf(0.0, skill_timer - dt)
+	portal_cooldown = maxf(0.0, portal_cooldown - dt)
 	screen_shake = maxf(0.0, screen_shake - dt)
 	if state == "playing":
+		update_moving_platforms(dt)
 		update_player(dt)
 		update_enemies(dt)
 		update_projectiles(dt)
@@ -187,7 +241,15 @@ func _physics_process(dt: float) -> void:
 	queue_redraw()
 	hud.queue_redraw()
 
+func update_moving_platforms(dt: float) -> void:
+	for platform in moving_platforms:
+		platform["y"] = float(platform["base_y"]) + sin(elapsed * 1.65 + float(platform["phase"])) * 36.0
+
 func update_player(dt: float) -> void:
+	if on_ground:
+		coyote_timer = 0.12
+	else:
+		coyote_timer = maxf(0.0, coyote_timer - dt)
 	var axis := touch_axis
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
 		axis -= 1.0
@@ -197,9 +259,10 @@ func update_player(dt: float) -> void:
 	if absf(axis) > 0.1:
 		facing = 1 if axis > 0.0 else -1
 	if dash_timer > 0.0:
-		velocity.x = float(facing) * 690.0
+		velocity.x = float(facing) * 760.0
 	else:
-		velocity.x = move_toward(velocity.x, axis * 245.0, 1200.0 * dt)
+		var target_speed := axis * (335.0 if absf(axis) > 0.85 else 285.0)
+		velocity.x = move_toward(velocity.x, target_speed, (1850.0 if absf(axis) > 0.08 else 2100.0) * dt)
 	velocity.y = minf(900.0, velocity.y + GRAVITY * dt)
 	var old_foot := player_pos.y
 	player_pos += velocity * dt
@@ -210,6 +273,18 @@ func update_player(dt: float) -> void:
 		show_message("Aether Gate sealed. Bring 3 seeds to Mira!", 2.5)
 	elif quest_stage >= 2 and not defeated_boss and player_pos.x > 7380.0:
 		boss_alert = "WARDEN OF THE FADING STAR"
+	if not defeated_boss and player_pos.x > 8340.0:
+		player_pos.x = 8340.0
+		velocity.x = 0.0
+		show_message("Defeat the Star Warden to enter Crystal Hollow!", 2.1)
+	elif not world_bosses_cleared[0] and player_pos.x > 10800.0:
+		player_pos.x = 10800.0
+		velocity.x = 0.0
+		show_message("Crystal Titan blocks the Celestial Highlands!", 2.1)
+	elif not world_bosses_cleared[1] and player_pos.x > 12900.0:
+		player_pos.x = 12900.0
+		velocity.x = 0.0
+		show_message("Sky Herald blocks the Shadowfen Marsh!", 2.1)
 	on_ground = false
 	var floor := ground_y(player_pos.x)
 	if floor > 0.0 and player_pos.y >= floor and velocity.y >= 0.0:
@@ -223,9 +298,35 @@ func update_player(dt: float) -> void:
 			velocity.y = 0.0
 			on_ground = true
 			jump_count = 0
+	# Moving sky platforms provide timing-based vertical traversal.
+	for platform in moving_platforms:
+		var top: float = float(platform["y"])
+		var px: float = float(platform["x"])
+		if velocity.y >= 0.0 and old_foot <= top + 9.0 and player_pos.y >= top and player_pos.x >= px - 12.0 and player_pos.x <= px + float(platform["width"]) + 12.0:
+			player_pos.y = top
+			velocity.y = 0.0
+			on_ground = true
+			jump_count = 0
+	# Poisonous shallows hurt only when the hero stands in their glow.
+	for pool in poison_pools:
+		if pool.has_point(player_pos + Vector2(0, -5)):
+			damage_player(10.0)
 	if player_pos.y > 850.0:
 		damage_player(999.0)
-	if player_pos.x > 4715.0 and checkpoint_x < 4780.0:
+	# Crossing each new biome makes it the respawn region without losing old checkpoints.
+	if player_pos.x > 13000.0 and checkpoint_x < 13000.0:
+		checkpoint_x = 13220.0
+		show_message("Checkpoint: Shadowfen Marsh", 2.4)
+		save_game()
+	elif player_pos.x > 10900.0 and checkpoint_x < 10900.0:
+		checkpoint_x = 11080.0
+		show_message("Checkpoint: Celestial Highlands", 2.4)
+		save_game()
+	elif player_pos.x > 8460.0 and checkpoint_x < 8460.0:
+		checkpoint_x = 8630.0
+		show_message("Checkpoint: Crystal Hollow", 2.4)
+		save_game()
+	elif player_pos.x > 4715.0 and checkpoint_x < 4780.0:
 		checkpoint_x = 4790.0
 		show_message("Checkpoint: Sunken Ruins", 2.4)
 		save_game()
@@ -236,9 +337,10 @@ func update_player(dt: float) -> void:
 
 func jump() -> void:
 	if state != "playing": return
-	if on_ground or (rune_upgrades[0] and jump_count < 2):
-		var second_jump: bool = not on_ground
+	if on_ground or coyote_timer > 0.0 or (rune_upgrades[0] and jump_count < 2):
+		var second_jump: bool = jump_count == 1 and not on_ground and coyote_timer <= 0.0
 		jump_count = 2 if second_jump else 1
+		coyote_timer = 0.0
 		velocity.y = -515.0 if second_jump else -550.0
 		on_ground = false
 		spawn_dust(player_pos, Color("a9a4ff") if second_jump else Color("a6e8cc"), 13 if second_jump else 7)
@@ -314,8 +416,8 @@ func hit_enemy(e: Dictionary, amount: float) -> void:
 
 func enemy_died(e: Dictionary) -> void:
 	e["hp"] = 0.0
-	var is_boss = e["type"] == "boss"
-	var bonus := 120 if is_boss else (20 if e["type"] == "sentinel" else 11)
+	var is_boss: bool = BOSS_TYPES.has(e["type"])
+	var bonus := 150 if is_boss else (30 if e["type"] == "sentinel" else 16)
 	gain_exp(bonus)
 	loot.append({"kind": "coin", "pos": Vector2(e["x"], e["y"] - 25), "t": 0.0, "amount": 90 if is_boss else rng.randi_range(5, 13)})
 	if e["seed_drop"] and seeds < 3 and quest_stage <= 1:
@@ -323,14 +425,31 @@ func enemy_died(e: Dictionary) -> void:
 	register_hunt(e["type"])
 	if rng.randf() < 0.13:
 		loot.append({"kind": "potion", "pos": Vector2(e["x"] - 15, e["y"] - 38), "t": 0.0, "amount": 1})
-	if is_boss:
+	if e["type"] == "boss":
 		defeated_boss = true
 		quest_stage = 3
+		portal_unlocked[1] = true
 		coins += 150
-		show_message("The Warden has fallen. The Aether returns!", 5.0)
+		show_message("The Warden has fallen! CRYSTAL HOLLOW portal unlocked!", 5.0)
 		play_sfx("win")
 		state = "victory"
 		save_game()
+	elif is_boss:
+		var cleared_index: int = BOSS_TYPES.find(e["type"]) - 1
+		if cleared_index >= 0 and cleared_index < world_bosses_cleared.size():
+			world_bosses_cleared[cleared_index] = true
+			coins += 180 + cleared_index * 75
+			max_hp += 18.0
+			hp = max_hp
+			if cleared_index < 2:
+				portal_unlocked[cleared_index + 2] = true
+				show_message("REALM SAVED! Next portal unlocked. +Max HP and coins!", 4.2)
+			else:
+				expansion_completed = true
+				show_message("ALL THREE REALMS RESTORED!", 5.0)
+				state = "realm_victory"
+			play_sfx("win")
+			save_game()
 
 func register_hunt(kind: String) -> void:
 	if kind == "moth":
@@ -425,13 +544,14 @@ func update_enemies(dt: float) -> void:
 		if e["hp"] <= 0.0: continue
 		var kind: String = e["type"]
 		if kind == "boss" and (quest_stage < 2 or player_pos.x < 7210.0): continue
+		if kind != "boss" and BOSS_TYPES.has(kind) and player_pos.x < float(e["origin"]) - 660.0: continue
 		e["stun"] = maxf(0.0, e["stun"] - dt)
 		e["cooldown"] -= dt
 		e["attack_anim"] = maxf(0.0, e["attack_anim"] - dt)
 		var distance: float = player_pos.x - e["x"]
 		var abs_distance = absf(distance)
-		var active = abs_distance < (630.0 if kind == "boss" else 360.0) and absf(player_pos.y - e["y"]) < 270.0
-		if kind == "boss":
+		var active = abs_distance < (700.0 if BOSS_TYPES.has(kind) else 370.0) and absf(player_pos.y - e["y"]) < 270.0
+		if BOSS_TYPES.has(kind):
 			if e["hp"] < e["max_hp"] * 0.48:
 				e["phase"] = 2
 			if active and e["cooldown"] <= 0.0:
@@ -441,12 +561,12 @@ func update_enemies(dt: float) -> void:
 			if abs_distance < 67.0 and e["cooldown"] < 1.1:
 				damage_player(24.0 if e["phase"] == 2 else 16.0)
 			continue
-		if kind == "moth" or kind == "wisp":
-			e["y"] = FLOOR_Y - (103.0 if kind == "moth" else 79.0) + sin(elapsed * 2.8 + e["origin"] * 0.07) * 22.0
+		if kind in ["moth", "wisp", "crystal_wisp", "sky_wisp", "cloud_moth", "bog_wisp"]:
+			e["y"] = FLOOR_Y - (112.0 if kind in ["moth", "cloud_moth", "sky_wisp"] else 84.0) + sin(elapsed * 2.8 + float(e["origin"]) * 0.07) * 23.0
 		if e["stun"] > 0.0: continue
 		if active:
 			e["dir"] = 1 if distance > 0.0 else -1
-			if kind == "wisp":
+			if kind in ["wisp", "crystal_wisp", "sky_wisp", "bog_wisp"]:
 				if abs_distance > 150.0:
 					e["x"] += float(e["dir"]) * e["speed"] * dt
 				elif abs_distance < 93.0:
@@ -454,7 +574,7 @@ func update_enemies(dt: float) -> void:
 				if e["cooldown"] <= 0.0:
 					shoot_enemy_bolt(e, 275.0, 9.0)
 					e["cooldown"] = 2.45
-			elif kind == "moth":
+			elif kind in ["moth", "cloud_moth"]:
 				e["x"] += float(e["dir"]) * e["speed"] * dt
 				if abs_distance < 43.0 and e["cooldown"] <= 0.0:
 					damage_player(9.0)
@@ -473,7 +593,7 @@ func update_enemies(dt: float) -> void:
 			if absf(e["x"] - e["origin"]) > 115.0:
 				e["dir"] *= -1
 			var patrol_x: float = e["x"] + float(e["dir"]) * e["speed"] * 0.34 * dt
-			if kind in ["moth", "wisp"] or ground_y(patrol_x) > 0.0:
+			if kind in ["moth", "wisp", "crystal_wisp", "sky_wisp", "cloud_moth", "bog_wisp"] or ground_y(patrol_x) > 0.0:
 				e["x"] = patrol_x
 			else:
 				e["dir"] *= -1
@@ -504,7 +624,7 @@ func update_projectiles(dt: float) -> void:
 		var impacted = false
 		if b["kind"] == "hero":
 			for e in enemies:
-				if e["hp"] > 0.0 and absf(b["pos"].x - e["x"]) < (62.0 if e["type"] == "boss" else 28.0) and absf(b["pos"].y - e["y"] + 34.0) < 64.0:
+				if e["hp"] > 0.0 and absf(b["pos"].x - e["x"]) < (62.0 if BOSS_TYPES.has(e["type"]) else 28.0) and absf(b["pos"].y - e["y"] + 34.0) < 64.0:
 					hit_enemy(e, b["damage"])
 					impacted = true
 					break
@@ -561,7 +681,8 @@ func spawn_dust(pos: Vector2, tint: Color, amount: int = 7) -> void:
 		particles.append({"pos": pos, "vel": Vector2(rng.randf_range(-115, 115), rng.randf_range(-180, 0)), "life": rng.randf_range(0.26, 0.55), "color": tint})
 
 func update_camera() -> void:
-	var camera_half = 576.0  # 1152 design-space coordinate; canvas_items maintains scaling
+	# Expand displays more world horizontally on ultrawide phones; no 16:9 camera lock.
+	var camera_half: float = get_viewport().get_visible_rect().size.x * 0.5
 	var desired = clampf(player_pos.x, camera_half, WORLD_WIDTH - camera_half)
 	camera.position = Vector2(desired, 322.0)
 	if screen_shake > 0.0:
@@ -573,7 +694,76 @@ func show_message(line: String, duration: float = 2.5) -> void:
 	message = line
 	message_time = duration
 
+func unlocked_portal_count() -> int:
+	var count := 0
+	for available in portal_unlocked:
+		if available:
+			count += 1
+	return count
+
+func nearby_portal_index() -> int:
+	for i in range(PORTAL_LOCATIONS.size()):
+		if absf(player_pos.x - PORTAL_LOCATIONS[i]) < 110.0 and absf(player_pos.y - FLOOR_Y) < 130.0:
+			return i
+	return -1
+
+func portal_jump(index: int) -> bool:
+	if state != "portals" or index < 0 or index >= PORTAL_ARRIVALS.size() or not portal_unlocked[index]:
+		return false
+	state = "playing"
+	player_pos = Vector2(PORTAL_ARRIVALS[index], FLOOR_Y)
+	checkpoint_x = PORTAL_ARRIVALS[index]
+	velocity = Vector2.ZERO
+	jump_count = 0
+	coyote_timer = 0.0
+	touch_axis = 0.0
+	joystick_touch = -1
+	attack_touch.clear()
+	hold_attack = false
+	bolts.clear()
+	portal_cooldown = 0.8
+	invincible = maxf(invincible, 1.25)
+	update_camera()
+	camera.reset_smoothing()
+	show_message("PORTAL TRAVEL: " + PORTAL_NAMES[index], 3.0)
+	spawn_dust(player_pos + Vector2(0, -42), Color("93f4e9"), 20)
+	play_sfx("skill")
+	save_game()
+	return true
+
+func go_expansion_world() -> void:
+	if not defeated_boss:
+		return
+	portal_unlocked[1] = true
+	state = "playing"
+	# Reuse the same travel method so save/checkpoint handling cannot diverge.
+	state = "portals"
+	portal_jump(1)
+
+func boss_display_name(kind: String) -> String:
+	var index := BOSS_TYPES.find(kind)
+	return WORLD_BOSS_NAMES[index] if index >= 0 else "UNKNOWN GUARDIAN"
+
+func active_boss_info() -> Dictionary:
+	for e in enemies:
+		if BOSS_TYPES.has(e["type"]) and e["hp"] > 0.0 and absf(float(e["x"]) - player_pos.x) < 640.0:
+			if e["type"] != "boss" or quest_stage >= 2:
+				return e
+	return {}
+
+func expansion_quest_label() -> String:
+	if not defeated_boss:
+		return "NEW REALMS: Defeat the Warden to activate the Portal Network"
+	if not world_bosses_cleared[0]:
+		return "NEW REALMS: Enter Crystal Hollow and defeat the Crystal Titan"
+	if not world_bosses_cleared[1]:
+		return "NEW REALMS: Travel to the Highlands and defeat the Sky Herald"
+	if not world_bosses_cleared[2]:
+		return "NEW REALMS: Explore Shadowfen and defeat its Guardian"
+	return "NEW REALMS: All three worlds restored! Explore freely"
+
 func nearby_npc() -> String:
+	if nearby_portal_index() >= 0: return "portal"
 	if nearby_cache_index() >= 0: return "cache"
 	if absf(player_pos.x - 415.0) < 105.0: return "mira"
 	if absf(player_pos.x - 1030.0) < 105.0: return "merchant"
@@ -583,6 +773,15 @@ func nearby_npc() -> String:
 
 func interact() -> void:
 	if state != "playing": return
+	if nearby_portal_index() >= 0:
+		var index: int = nearby_portal_index()
+		if index > 0 and not portal_unlocked[index]:
+			show_message("This portal is sealed. Defeat the preceding realm guardian!", 3.0)
+		elif index == 0 and not defeated_boss:
+			show_message("Portal Network inactive. Defeat the Star Warden first!", 3.0)
+		else:
+			state = "portals"
+		return
 	if nearby_cache_index() >= 0:
 		open_cache(nearby_cache_index())
 		return
@@ -660,6 +859,11 @@ func start_new_game() -> void:
 	hunted_sentinels = 0
 	claimed_hunts.clear()
 	floating_text.clear()
+	portal_unlocked = [true, false, false, false]
+	world_bosses_cleared = [false, false, false]
+	expansion_completed = false
+	coyote_timer = 0.0
+	portal_cooldown = 0.0
 	checkpoint_x = 145.0
 	defeated_boss = false
 	bolts.clear()
@@ -670,6 +874,7 @@ func start_new_game() -> void:
 	dialogue = ""
 	show_message("ECHOES OF AETHER — Talk to Mira to begin your journey!", 5.0)
 	update_camera()
+	camera.reset_smoothing()
 	save_game()
 
 func continue_game() -> void:
@@ -684,6 +889,7 @@ func continue_game() -> void:
 		dialogue = ""
 		show_message("Journey restored at your last checkpoint.", 2.7)
 		update_camera()
+		camera.reset_smoothing()
 
 func respawn() -> void:
 	state = "playing"
@@ -702,10 +908,12 @@ func save_game() -> void:
 		"coins": coins, "potions": potions, "sword": sword_level, "armor": armor_level,
 		"stamina_max": max_stamina, "seeds": seeds, "quest": quest_stage,
 		"checkpoint": checkpoint_x, "boss": defeated_boss, "sound": sound_on,
-		"music": music_on, "save_version": 2,
+		"music": music_on,
 		"relic_shards": relic_shards, "opened_caches": opened_caches, "rune_upgrades": rune_upgrades,
 		"hunt_moths": hunted_moths, "hunt_sentinels": hunted_sentinels,
-		"claimed_hunts": claimed_hunts}
+		"claimed_hunts": claimed_hunts,
+		"portal_unlocked": portal_unlocked, "world_bosses_cleared": world_bosses_cleared,
+		"expansion_completed": expansion_completed, "save_version": 3}
 	var file = FileAccess.open("user://aether_save.json", FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(values))
@@ -743,6 +951,22 @@ func load_game() -> bool:
 	hunted_moths = int(data.get("hunt_moths", 0))
 	hunted_sentinels = int(data.get("hunt_sentinels", 0))
 	claimed_hunts = data.get("claimed_hunts", [])
+	# Version 1/2 saves unlock Crystal Hollow if the old Star Warden is defeated.
+	var old_boss: bool = bool(data.get("boss", false))
+	portal_unlocked = data.get("portal_unlocked", [true, old_boss, false, false])
+	world_bosses_cleared = data.get("world_bosses_cleared", [false, false, false])
+	if portal_unlocked.size() != 4:
+		portal_unlocked = [true, old_boss, false, false]
+	if world_bosses_cleared.size() != 3:
+		world_bosses_cleared = [false, false, false]
+	portal_unlocked[0] = true
+	if old_boss:
+		portal_unlocked[1] = true
+	if world_bosses_cleared[0]:
+		portal_unlocked[2] = true
+	if world_bosses_cleared[1]:
+		portal_unlocked[3] = true
+	expansion_completed = bool(data.get("expansion_completed", false)) or bool(world_bosses_cleared[2])
 	jump_count = 0
 	floating_text.clear()
 	checkpoint_x = float(data.get("checkpoint", 145))
@@ -761,7 +985,7 @@ func _input(event: InputEvent) -> void:
 				state = "pause"
 				save_game()
 			elif state == "settings": state = hud.settings_return
-			elif state in ["pause", "inventory", "quests", "shop", "trainer"]: state = "playing"
+			elif state in ["pause", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "realm_victory"]: state = "playing"
 		elif state == "playing":
 			match key:
 				KEY_SPACE, KEY_W, KEY_UP: jump()
@@ -782,12 +1006,16 @@ func _input(event: InputEvent) -> void:
 			touch_release(event.index)
 	elif event is InputEventScreenDrag:
 		if event.index == joystick_touch:
-			touch_axis = clampf((event.position.x - hud.joystick_center().x) / 60.0, -1.0, 1.0)
+			touch_axis = joystick_axis_from_position(event.position)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed: touch_press(event.position, 999)
 		else: touch_release(999)
 	elif event is InputEventMouseMotion and joystick_touch == 999:
-		touch_axis = clampf((event.position.x - hud.joystick_center().x) / 60.0, -1.0, 1.0)
+		touch_axis = joystick_axis_from_position(event.position)
+
+func joystick_axis_from_position(pos: Vector2) -> float:
+	var axis := clampf((pos.x - joystick_base.x) / 78.0, -1.0, 1.0)
+	return 0.0 if absf(axis) < 0.12 else axis
 
 func touch_press(pos: Vector2, id: int) -> void:
 	if state != "playing" or dialogue != "":
@@ -798,7 +1026,8 @@ func touch_press(pos: Vector2, id: int) -> void:
 	var controls = hud.control_centers()
 	for key in controls:
 		var center: Vector2 = controls[key]
-		if center.distance_to(pos) < 43.0:
+		var hit_radius := 58.0 if key == "attack" else (51.0 if key in ["jump", "skill"] else 46.0)
+		if center.distance_to(pos) < hit_radius:
 			match key:
 				"attack":
 					attack()
@@ -810,9 +1039,11 @@ func touch_press(pos: Vector2, id: int) -> void:
 				"potion": heal()
 				"interact": interact()
 			return
-	if pos.x < hud.size.x * 0.36 and pos.y > hud.size.y * 0.48:
+	if pos.x < minf(405.0, hud.size.x * 0.36) and pos.y > hud.size.y * 0.45 and joystick_touch < 0:
 		joystick_touch = id
-		touch_axis = clampf((pos.x - hud.joystick_center().x) / 60.0, -1.0, 1.0)
+		# Always anchor on the visual thumbstick for predictable directional input.
+		joystick_base = hud.joystick_center()
+		touch_axis = joystick_axis_from_position(pos)
 
 func touch_release(id: int) -> void:
 	if id == joystick_touch:
@@ -825,20 +1056,25 @@ func area_name() -> String:
 	if player_pos.x < 1900.0: return "MOONHAVEN VILLAGE"
 	if player_pos.x < 4750.0: return "WHISPERWOOD FOREST"
 	if player_pos.x < 7250.0: return "SUNKEN RUINS"
-	return "ASTRAL SANCTUM"
+	if player_pos.x < 8400.0: return "ASTRAL SANCTUM"
+	if player_pos.x < 10800.0: return "CRYSTAL HOLLOW"
+	if player_pos.x < 12900.0: return "CELESTIAL HIGHLANDS"
+	return "SHADOWFEN MARSH"
 
 func hero_sprite_scale() -> Vector2:
 	return Vector2(float(facing), 1.0)
 
 func _draw() -> void:
 	var camera_x = camera.position.x
-	var left = camera_x - 750.0
-	var right = camera_x + 750.0
+	var view_half: float = get_viewport().get_visible_rect().size.x * 0.5
+	var left = camera_x - view_half - 190.0
+	var right = camera_x + view_half + 190.0
 	# Original layered pixel-art world: skyline, silhouettes, interactive structures and moving light.
-	for region in range(3):
-		var x0: float = [0.0, 1900.0, 4750.0][region]
-		var x1: float = [1900.0, 4750.0, WORLD_WIDTH][region]
-		var sky: Color = [Color("1b3850"), Color("152a3e"), Color("1a1b37")][region]
+	for region in range(6):
+		var x0: float = [0.0, 1900.0, 4750.0, 8400.0, 10800.0, 12900.0][region]
+		var x1: float = [1900.0, 4750.0, 8400.0, 10800.0, 12900.0, WORLD_WIDTH][region]
+		var sky: Color = [Color("274b64"), Color("203c51"), Color("252a48"),
+			Color("152e45"), Color("477494"), Color("222e43")][region]
 		draw_rect(Rect2(x0, -250, x1 - x0, 780), sky)
 		for band in range(14):
 			var strength = 0.008 + 0.004 * float(band)
@@ -849,12 +1085,12 @@ func _draw() -> void:
 			var mountain = PackedVector2Array([Vector2(cx - 145, 440), Vector2(cx, 245 + sin(float(i) * 2.5) * 55), Vector2(cx + 170, 440)])
 			draw_colored_polygon(mountain, Color(0.09, 0.17, 0.23, 0.65) if region < 2 else Color(0.15, 0.13, 0.24, 0.75))
 	# Subtle dusk/night tint across each biome, without extra mobile shaders.
-	var twilight: float = 0.13 + 0.17 * (0.5 + 0.5 * sin(elapsed * 0.02))
+	var twilight: float = 0.035 + 0.07 * (0.5 + 0.5 * sin(elapsed * 0.02))
 	if right >= 0.0:
 		draw_rect(Rect2(maxf(0.0, left), -180, minf(WORLD_WIDTH, right + 20.0) - maxf(0.0, left), 690), Color(0.08, 0.03, 0.19, twilight))
 	# Stars and fireflies are purposely deterministic in space and animated only in brightness.
-	for i in range(70):
-		var sx = float(i * 167 % 8363)
+	for i in range(128):
+		var sx = float(i * 167 % 15783)
 		if sx < left or sx > right: continue
 		var sy = -80.0 + float((i * 137) % 325)
 		var light = 0.2 + 0.3 * (0.5 + 0.5 * sin(elapsed * 1.9 + float(i)))
@@ -871,20 +1107,24 @@ func _draw() -> void:
 			if tx < left - 220 or tx > right + 220: continue
 			draw_texture_rect(TREE_DARK, Rect2(tx - 160, 135 + float(i % 3) * 23, 300, 370), false, Color(0.65, 0.8, 0.83, 0.78))
 			draw_texture_rect(TREE, Rect2(tx - 95, 238 + float(i % 2) * 16, 190, 270), false)
-	if right > 4750.0:
+	if right > 4750.0 and left < 8400.0:
 		for i in range(14):
 			var rx = 4780.0 + float(i) * 255.0
 			if rx < left - 100 or rx > right + 100: continue
 			draw_texture_rect(RUIN, Rect2(rx - 55, 282 - float(i % 3) * 36, 110, 235 + float(i % 3) * 36), false, Color(0.65, 0.7, 0.9, 0.78))
+	# Unique scenery for three new, fully connected lands.
+	draw_expansion_scenery(left, right)
 	# Terrain below the playable floor, interrupted by jumpable pits.
 	var first = int(maxf(0.0, floorf((left - 96.0) / 48.0)))
 	var last = int(minf(WORLD_WIDTH / 48.0, ceilf((right + 96.0) / 48.0)))
 	for tile in range(first, last + 1):
 		var tx = float(tile) * 48.0
 		if ground_y(tx + 22.0) < 0.0: continue
-		var earth = Color("243a35") if tx < 4750 else Color("27283b")
+		var earth: Color = Color("243a35") if tx < 4750 else (Color("27283b") if tx < 8400 else (Color("133949") if tx < 10800 else (Color("29445b") if tx < 12900 else Color("203b32"))))
 		draw_rect(Rect2(tx, FLOOR_Y + 10, 49, 190), earth)
-		draw_texture_rect(GRASS if tx < 4750 else ROCK, Rect2(tx, FLOOR_Y - 1, 49, 46), false)
+		var ground_tex: Texture2D = GRASS if tx < 4750 or tx >= 12900 else ROCK
+		var ground_tint: Color = Color("bdefff") if tx >= 8400 and tx < 10800 else (Color("b0d8ee") if tx >= 10800 and tx < 12900 else Color.WHITE)
+		draw_texture_rect(ground_tex, Rect2(tx, FLOOR_Y - 1, 49, 46), false, ground_tint)
 		if tile % 3 == 1:
 			draw_rect(Rect2(tx + 22, FLOOR_Y + 57, 7, 10), Color(0.1, 0.11, 0.16, 0.65))
 	for p in platforms:
@@ -893,18 +1133,32 @@ func _draw() -> void:
 		draw_rect(Rect2(p.position.x, p.position.y, p.size.x, 6), Color("74baa8") if p.position.x < 4750 else Color("b1a0dc"))
 		for j in range(int(p.size.x / 36)):
 			draw_rect(Rect2(p.position.x + j * 36 + 16, p.position.y + 8, 3, 8), Color(0.04, 0.12, 0.16, 0.5))
+	for platform in moving_platforms:
+		var px: float = float(platform["x"])
+		var py: float = float(platform["y"])
+		if px + float(platform["width"]) < left or px > right: continue
+		draw_rect(Rect2(px, py, float(platform["width"]), 14), Color("455c8a"))
+		draw_rect(Rect2(px, py, float(platform["width"]), 5), Color("a6eaf7"))
+		draw_line(Vector2(px, py + 13), Vector2(px + float(platform["width"]), py + 13), Color("aec4fb"), 2)
 	for pit in traps:
 		if pit.position.x > right or pit.end.x < left: continue
 		for spike in range(int(pit.size.x / 25)):
 			var px = pit.position.x + float(spike * 25)
 			draw_colored_polygon(PackedVector2Array([Vector2(px, 590), Vector2(px + 12, 550), Vector2(px + 25, 590)]), Color("9f628d"))
+	for pool in poison_pools:
+		if pool.position.x > right or pool.end.x < left: continue
+		draw_rect(Rect2(pool.position.x, FLOOR_Y - 8.0, pool.size.x, 14), Color("568568"))
+		draw_rect(Rect2(pool.position.x + 4.0, FLOOR_Y - 8.0, pool.size.x - 8.0, 7), Color("adf286"))
+		for j in range(3):
+			var bubble_x: float = pool.position.x + 16.0 + float(j) * (pool.size.x - 32.0) / 2.0
+			draw_circle(Vector2(bubble_x, FLOOR_Y - 14.0 - absf(sin(elapsed * 1.9 + float(j) * 2.1)) * 12.0), 4.0, Color("c4fb95"))
 	# Ground-level grass crystals and torches.
 	for i in range(first, last + 1):
 		if i % 5 == 2 and ground_y(float(i) * 48.0) > 0:
 			var px = float(i) * 48.0
 			draw_line(Vector2(px + 20, 501), Vector2(px + 15, 485), Color("55c89d"), 3.0)
 			draw_line(Vector2(px + 23, 501), Vector2(px + 32, 490), Color("8ce0be"), 2.0)
-		if i % 17 == 0 and float(i) * 48.0 > 4850:
+		if i % 17 == 0 and float(i) * 48.0 > 4850 and float(i) * 48.0 < 8400:
 			draw_texture_rect(MAGIC, Rect2(float(i) * 48.0, 456, 32, 42), false)
 	# Buildings also define walkable space decor, while collision is handled by terrain.
 	if left < 1750:
@@ -931,23 +1185,40 @@ func _draw() -> void:
 	if left < 6200 and right > 6080:
 		draw_texture_rect(PORTAL, Rect2(6078, 286, 136, 215), false, Color(0.9, 0.48, 0.6, 1) if quest_stage < 2 else Color(0.42, 1, 0.76, 0.93))
 		draw_label(Vector2(6085, 271), "AETHER GATE", 15, Color("f9e49e"))
+	# Functional portal network: art changes when each destination is unlocked.
+	for i in range(PORTAL_LOCATIONS.size()):
+		var gate_x: float = PORTAL_LOCATIONS[i]
+		if gate_x < left - 70.0 or gate_x > right + 70.0: continue
+		var lit: bool = bool(portal_unlocked[i]) and (i != 0 or defeated_boss)
+		var portal_color: Color = Color("66f0dc") if lit else Color("776b8d")
+		draw_circle(Vector2(gate_x, FLOOR_Y - 81), 55.0 + sin(elapsed * 2.0 + float(i)) * 4.0, Color(0.19, 0.72, 0.82, 0.13) if lit else Color(0.18, 0.17, 0.3, 0.17))
+		draw_texture_rect(PORTAL, Rect2(gate_x - 46.0, FLOOR_Y - 166, 92, 167), false, portal_color)
+		draw_label(Vector2(gate_x - 63.0, FLOOR_Y - 185), "PORTAL - " + ("ACTIVE" if lit else "SEALED"), 14, Color("cbf7e2") if lit else Color("b4a4c1"))
 	for e in enemies:
 		if e["hp"] <= 0.0 or absf(e["x"] - camera_x) > 730.0: continue
 		if e["type"] == "boss" and quest_stage < 2: continue
 		var texture: Texture2D
 		match e["type"]:
-			"slime": texture = SLIME
-			"moth": texture = MOTH
-			"beetle": texture = BEETLE
+			"slime", "bog_slime": texture = SLIME
+			"moth", "cloud_moth": texture = MOTH
+			"beetle", "crystal_bug": texture = BEETLE
 			"sentinel": texture = SENTINEL
-			"wisp": texture = WISP
+			"wisp", "crystal_wisp", "sky_wisp", "bog_wisp": texture = WISP
 			_: texture = BOSS
-		var scale = 1.0 if e["type"] != "boss" else 2.7
-		var height = 53.0 * scale
-		var width = 54.0 * scale
-		var tint = Color(1.0, 0.52, 0.47) if e["stun"] > 0 else Color.WHITE
+		var scale: float = 2.65 if BOSS_TYPES.has(e["type"]) else 1.05
+		var height: float = 53.0 * scale
+		var width: float = 54.0 * scale
+		var tint: Color = Color.WHITE
+		match e["type"]:
+			"crystal_bug", "crystal_wisp", "crystal_titan": tint = Color("86dff6")
+			"sky_wisp", "cloud_moth", "sky_herald": tint = Color("ffdb9d")
+			"bog_slime", "bog_wisp", "marsh_guardian": tint = Color("b3edb3")
+		if e["stun"] > 0: tint = Color("ff8e89")
+		if BOSS_TYPES.has(e["type"]):
+			draw_circle(Vector2(e["x"], e["y"] - height * 0.5), width * 0.63, Color(tint.r, tint.g, tint.b, 0.12))
+			draw_label(Vector2(e["x"] - 75, e["y"] - height - 25), boss_display_name(e["type"]), 14, tint)
 		draw_texture_rect(texture, Rect2(e["x"] - width / 2.0, e["y"] - height, width, height), false, tint)
-		if e["hp"] < e["max_hp"] or e["type"] == "boss":
+		if e["hp"] < e["max_hp"] or BOSS_TYPES.has(e["type"]):
 			var fraction: float = clampf(e["hp"] / e["max_hp"], 0.0, 1.0)
 			draw_rect(Rect2(e["x"] - width / 2.0, e["y"] - height - 14, width, 6), Color("1c1727"))
 			draw_rect(Rect2(e["x"] - width / 2.0, e["y"] - height - 14, width * fraction, 6), Color("ef786e"))
@@ -973,15 +1244,15 @@ func _draw() -> void:
 		# Mirroring the draw transform makes the character face the travel direction.
 		if dash_timer > 0.0:
 			draw_set_transform(player_pos + Vector2(-float(facing) * 40.0, 0), 0.0, hero_sprite_scale())
-			draw_texture_rect(art, Rect2(-24, -67, 48, 67), false, Color(0.4, 0.9, 1, 0.26))
+			draw_texture_rect(art, Rect2(-29, -78, 58, 78), false, Color(0.4, 0.9, 1, 0.26))
 		draw_set_transform(player_pos, 0.0, hero_sprite_scale())
-		draw_texture_rect(art, Rect2(-24, -67 + (sin(elapsed * 9) if on_ground else 0), 48, 67), false, hero_tint)
+		draw_texture_rect(art, Rect2(-29, -78 + (sin(elapsed * 9) if on_ground else 0), 58, 78), false, hero_tint)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if slash_timer > 0.0:
 			var slash_center = player_pos + Vector2(float(facing) * 22.0, -37.0)
 			draw_arc(slash_center, 54.0, -1.1 if facing > 0 else 2.05, 1.25 if facing > 0 else 4.35, 22, Color("b8f6ff"), 7.0, true)
 		if nearby_npc() != "" and dialogue == "" and state == "playing":
-			var verb := "OPEN" if nearby_npc() == "cache" else ("TRAIN" if nearby_npc() == "scout" else ("SHOP" if nearby_npc() == "merchant" else "TALK"))
+			var verb := "TRAVEL" if nearby_npc() == "portal" else ("OPEN" if nearby_npc() == "cache" else ("TRAIN" if nearby_npc() == "scout" else ("SHOP" if nearby_npc() == "merchant" else "TALK")))
 			draw_label(player_pos + Vector2(-45, -92), "TAP %s / E" % verb, 15, Color("ffefbd"))
 	for ft in floating_text:
 		if absf(ft["pos"].x - camera_x) < 700.0:
@@ -991,6 +1262,74 @@ func _draw() -> void:
 	if quest_stage >= 2 and left < 7900 and right > 7500:
 		draw_circle(Vector2(7800, 120), 150.0, Color(0.7, 0.24, 1.0, 0.08))
 		draw_circle(Vector2(7800, 120), 56 + sin(elapsed * 2) * 7, Color(0.6, 0.46, 1, 0.13))
+
+
+func draw_expansion_scenery(left: float, right: float) -> void:
+	# All details are authored procedurally so the extra maps need no network assets.
+	if right > 8400.0 and left < 10800.0:
+		# Crystal Hollow: cavern ceiling, stalactites, quartz clusters and underground streams.
+		var cave_left: float = maxf(8400.0, left - 150.0)
+		var cave_right: float = minf(10800.0, right + 150.0)
+		draw_rect(Rect2(cave_left, 0, cave_right - cave_left, 130), Color("102637"))
+		for i in range(16):
+			var x: float = 8400.0 + float(i) * 160.0
+			if x < left - 190.0 or x > right + 190.0: continue
+			var length: float = 100.0 + float(i % 4) * 32.0
+			draw_colored_polygon(PackedVector2Array([Vector2(x - 34, 100), Vector2(x + 34, 100), Vector2(x + 10, 100 + length)]), Color("234e67"))
+			draw_line(Vector2(x + 10, 105), Vector2(x + 11, 96 + length), Color("4b8092"), 3)
+		for i in range(15):
+			var x: float = 8445.0 + float(i) * 155.0
+			if x < left - 110.0 or x > right + 110.0: continue
+			var h: float = 75.0 + float(i % 4) * 28.0
+			var crystal := PackedVector2Array([Vector2(x - 36, FLOOR_Y), Vector2(x - 17, FLOOR_Y - h * 0.7),
+				Vector2(x + 2, FLOOR_Y - h), Vector2(x + 28, FLOOR_Y - h * 0.40), Vector2(x + 37, FLOOR_Y)])
+			draw_colored_polygon(crystal, Color("327e98"))
+			draw_line(Vector2(x + 2, FLOOR_Y - h), Vector2(x + 3, FLOOR_Y - 7), Color("9ef3ef"), 3)
+			draw_circle(Vector2(x + 2, FLOOR_Y - h), 10.0 + sin(elapsed * 2.0 + float(i)) * 2.0, Color(0.37, 0.93, 1.0, 0.3))
+		if cave_right > cave_left:
+			draw_rect(Rect2(cave_left, 456, cave_right - cave_left, 7), Color("2e7485"))
+		draw_label(Vector2(8510, 216), "CRYSTAL HOLLOW", 29, Color("b8fbff"))
+	if right > 10800.0 and left < 12900.0:
+		# Celestial Highlands: layered moving clouds, mountain islands and streaming waterfalls.
+		for i in range(22):
+			var x: float = 10800.0 + float(i) * 105.0
+			if x < left - 210.0 or x > right + 210.0: continue
+			var cy: float = 125.0 + float(i % 5) * 54.0
+			var drift: float = sin(elapsed * 0.33 + float(i)) * 20.0
+			draw_circle(Vector2(x + drift, cy), 47.0, Color(0.81, 0.93, 1.0, 0.22))
+			draw_circle(Vector2(x + 42 + drift, cy + 4), 33.0, Color(0.88, 0.97, 1.0, 0.20))
+		for i in range(10):
+			var x: float = 10930.0 + float(i) * 215.0
+			if x < left - 170.0 or x > right + 170.0: continue
+			var iy: float = 265.0 + float(i % 3) * 57.0
+			draw_colored_polygon(PackedVector2Array([Vector2(x - 98, iy), Vector2(x + 93, iy), Vector2(x + 42, iy + 69), Vector2(x - 33, iy + 94)]), Color("4c6a73"))
+			draw_line(Vector2(x - 95, iy), Vector2(x + 88, iy), Color("c4e6d9"), 8)
+			if i % 2 == 0:
+				for line in range(3):
+					var drop_x: float = x + 48.0 + float(line) * 7.0
+					draw_line(Vector2(drop_x, iy + 12), Vector2(drop_x + sin(elapsed * 2.0 + line) * 2.0, FLOOR_Y - 8), Color(0.57, 0.94, 1.0, 0.38), 2)
+		draw_label(Vector2(10980, 208), "CELESTIAL HIGHLANDS", 29, Color("f7ecc0"))
+	if right > 12900.0 and left < WORLD_WIDTH:
+		# Shadowfen Marsh: giant luminescent mushrooms, reeds, fireflies and poisonous pools.
+		for i in range(23):
+			var x: float = 12935.0 + float(i) * 124.0
+			if x < left - 160.0 or x > right + 160.0: continue
+			var height: float = 95.0 + float(i % 5) * 24.0
+			var mushroom_color: Color = Color("715078") if i % 2 else Color("568b81")
+			draw_rect(Rect2(x - 7, FLOOR_Y - height, 14, height), Color("8d9c8d"))
+			draw_colored_polygon(PackedVector2Array([Vector2(x - 63, FLOOR_Y - height + 15),
+				Vector2(x - 28, FLOOR_Y - height - 22), Vector2(x + 14, FLOOR_Y - height - 31),
+				Vector2(x + 60, FLOOR_Y - height + 15)]), mushroom_color)
+			for dot in range(3):
+				draw_circle(Vector2(x - 27 + dot * 26, FLOOR_Y - height + 4), 5.5, Color("c8eeb1"))
+			if i % 2 == 1:
+				draw_circle(Vector2(x, FLOOR_Y - height - 17), 39.0, Color(0.58, 1.0, 0.64, 0.09))
+		for i in range(35):
+			var x: float = 12900.0 + float(i) * 84.0
+			if x < left - 40.0 or x > right + 40.0: continue
+			var fire_y: float = 300.0 + float((i * 31) % 155) + sin(elapsed * 1.1 + float(i)) * 12.0
+			draw_circle(Vector2(x + sin(elapsed * 0.9 + i) * 13.0, fire_y), 3.0, Color(0.61, 1.0, 0.69, 0.65))
+		draw_label(Vector2(13040, 213), "SHADOWFEN MARSH", 29, Color("c1f1c2"))
 
 func draw_label(at: Vector2, value: String, font_size: int = 17, color: Color = Color.WHITE) -> void:
 	draw_string(font, at, value, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("101824"))

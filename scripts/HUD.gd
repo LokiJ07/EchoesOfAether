@@ -13,14 +13,14 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func joystick_center() -> Vector2:
-	return Vector2(122.0, size.y - 104.0)
+	return Vector2(145.0, size.y - 120.0)
 
 func control_centers() -> Dictionary:
 	var w = size.x
 	var h = size.y
-	return {"attack": Vector2(w - 116, h - 112), "jump": Vector2(w - 242, h - 77),
-		"dash": Vector2(w - 279, h - 178), "skill": Vector2(w - 157, h - 243),
-		"potion": Vector2(w - 382, h - 72), "interact": Vector2(w - 387, h - 166)}
+	return {"attack": Vector2(w - 129, h - 122), "jump": Vector2(w - 278, h - 80),
+		"dash": Vector2(w - 315, h - 205), "skill": Vector2(w - 187, h - 281),
+		"potion": Vector2(w - 433, h - 77), "interact": Vector2(w - 437, h - 187)}
 
 func handle_top_press(pos: Vector2) -> bool:
 	for entry in top_buttons:
@@ -28,6 +28,7 @@ func handle_top_press(pos: Vector2) -> bool:
 			match entry["key"]:
 				"bag": game.state = "inventory"
 				"quest": game.state = "quests"
+				"map": game.state = "worldmap"
 				"pause":
 					game.state = "pause"
 					game.save_game()
@@ -61,6 +62,12 @@ func handle_menu_press(pos: Vector2) -> bool:
 			"buy0": game.buy_shop_item(0)
 			"buy1": game.buy_shop_item(1)
 			"buy2": game.buy_shop_item(2)
+			"portal0": game.portal_jump(0)
+			"portal1": game.portal_jump(1)
+			"portal2": game.portal_jump(2)
+			"portal3": game.portal_jump(3)
+			"explore_world": game.go_expansion_world()
+			"explore_again": game.state = "playing"
 			"train0": game.unlock_rune(0)
 			"train1": game.unlock_rune(1)
 			"train2": game.unlock_rune(2)
@@ -115,7 +122,7 @@ func control_button(at: Vector2, radius: float, letter: String, label: String, t
 
 func draw_dash_button(at: Vector2) -> void:
 	var tint := Color("84d9f0")
-	var radius := 36.0
+	var radius := 42.0
 	draw_circle(at + Vector2(3, 5), radius + 2.0, Color(0, 0, 0, 0.31))
 	draw_circle(at, radius, Color("162c39"))
 	draw_arc(at, radius - 2.0, 0.0, TAU, 36, tint, 2.0, true)
@@ -134,7 +141,7 @@ func skill_status_text() -> String:
 	return "READY"
 
 func draw_skill_button(at: Vector2) -> void:
-	var radius := 39.0
+	var radius := 45.0
 	var tint := Color("c6a2f5")
 	var recharging: bool = game.skill_timer > 0.0
 	var low_stamina: bool = game.stamina < 35.0
@@ -159,7 +166,7 @@ func _draw() -> void:
 	if game.state == "main":
 		draw_main_menu(w, h)
 		return
-	if game.state in ["playing", "inventory", "quests", "shop", "trainer", "pause", "settings", "victory", "defeat"]:
+	if game.state in ["playing", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "pause", "settings", "victory", "realm_victory", "defeat"]:
 		draw_game_status(w, h)
 	if game.state == "playing":
 		draw_boss_health(w)
@@ -178,6 +185,9 @@ func _draw() -> void:
 		"inventory": draw_inventory(w, h)
 		"quests": draw_quests(w, h)
 		"shop": draw_shop(w, h)
+		"portals": draw_portal_network(w, h)
+		"worldmap": draw_world_map(w, h)
+		"realm_victory": draw_realm_victory(w, h)
 		"trainer": draw_trainer(w, h)
 		"pause": draw_pause(w, h)
 		"settings": draw_settings(w, h)
@@ -187,17 +197,14 @@ func _draw() -> void:
 		centered(w / 2.0, h - 24, game.message, 16, Color("ffd59a"))
 
 func draw_boss_health(w: float) -> void:
-	if game.quest_stage < 2 or game.defeated_boss or game.player_pos.x < 7190.0:
+	var boss: Dictionary = game.active_boss_info()
+	if boss.is_empty():
 		return
-	for enemy in game.enemies:
-		if enemy["type"] != "boss" or enemy["hp"] <= 0.0:
-			continue
-		var fraction: float = clampf(enemy["hp"] / enemy["max_hp"], 0.0, 1.0)
-		var x := w * 0.5 - 190.0
-		draw_rect(Rect2(x, 73, 380, 33), Color(0.06, 0.07, 0.15, 0.86))
-		draw_rect(Rect2(x + 7, 92, 366.0 * fraction, 8), Color("da77c0") if fraction < 0.48 else Color("8ec8db"))
-		centered(w * 0.5, 87, "WARDEN OF THE FADING STAR", 13, Color("f4cde4"))
-		return
+	var fraction: float = clampf(float(boss["hp"]) / float(boss["max_hp"]), 0.0, 1.0)
+	var x: float = w * 0.5 - 190.0
+	draw_rect(Rect2(x, 76, 380, 37), Color(0.06, 0.07, 0.15, 0.88))
+	draw_rect(Rect2(x + 7, 102, 366.0 * fraction, 7), Color("df6a97") if fraction < 0.48 else Color("8ed7ce"))
+	centered(w * 0.5, 95, game.boss_display_name(boss["type"]), 15, Color("f5e6cc"))
 
 func draw_game_status(w: float, h: float) -> void:
 	# Compact status strip: never blocks the central gameplay corridor.
@@ -214,31 +221,31 @@ func draw_game_status(w: float, h: float) -> void:
 		centered(w / 2.0, 55, quest_label, 14, Color("e4c891"))
 	else:
 		centered(w / 2.0, 55, "VALLEY SAVED — MAIN QUEST COMPLETE", 14, Color("a7f2bc"))
-	for i in range(3):
-		var label = ["BAG", "QUEST", "PAUSE"][i]
-		var key = ["bag", "quest", "pause"][i]
-		var r = Rect2(w - 287 + i * 94, 18, 87, 45)
+	for i in range(4):
+		var label = ["BAG", "QUEST", "MAP", "PAUSE"][i]
+		var key = ["bag", "quest", "map", "pause"][i]
+		var r = Rect2(w - 396 + i * 96, 18, 90, 49)
 		box(r, Color("162d40"), Color("6a9f9c"), 1.0)
 		centered(r.position.x + r.size.x / 2.0, r.position.y + 28, label, 15)
 		top_buttons.append({"rect": r, "key": key})
 
 func draw_mobile_controls(w: float, h: float) -> void:
 	var joy = joystick_center()
-	draw_circle(joy, 76, Color(0.02, 0.12, 0.18, 0.36))
-	draw_arc(joy, 73, 0, TAU, 52, Color("a0dccd"), 2, true)
-	draw_circle(joy + Vector2(game.touch_axis * 43.0, 0), 37, Color("31616f"))
-	centered(joy.x, joy.y - 82, "MOVE", 13, Color("b3e8dc"))
-	text(joy + Vector2(-50, 9), "<", 25, Color("e2f5f3"))
-	text(joy + Vector2(36, 9), ">", 25, Color("e2f5f3"))
+	draw_circle(joy, 99, Color(0.02, 0.12, 0.18, 0.42))
+	draw_arc(joy, 96, 0, TAU, 52, Color("a0dccd"), 3.0, true)
+	draw_circle(joy + Vector2(game.touch_axis * 55.0, 0), 46, Color("31616f"))
+	centered(joy.x, joy.y - 107, "MOVE", 16, Color("b3e8dc"))
+	text(joy + Vector2(-66, 10), "<", 28, Color("e2f5f3"))
+	text(joy + Vector2(51, 10), ">", 28, Color("e2f5f3"))
 	var c = control_centers()
-	control_button(c["attack"], 44, "S", "ATTACK", Color("f2ba7b"))
-	control_button(c["jump"], 38, "^", "JUMP", Color("b4e4c2"))
+	control_button(c["attack"], 51, "S", "ATTACK", Color("f2ba7b"))
+	control_button(c["jump"], 45, "^", "JUMP", Color("b4e4c2"))
 	draw_dash_button(c["dash"])
 	draw_skill_button(c["skill"])
-	control_button(c["potion"], 32, "+", "POTION %d" % game.potions, Color("f5a2a2"))
+	control_button(c["potion"], 37, "+", "POTION %d" % game.potions, Color("f5a2a2"))
 	if game.nearby_npc() != "":
 		var label := "OPEN" if game.nearby_npc() == "cache" else ("TRAIN" if game.nearby_npc() == "scout" else ("SHOP" if game.nearby_npc() == "merchant" else "TALK"))
-		control_button(c["interact"], 32, "!", label, Color("f3db98"))
+		control_button(c["interact"], 40, "!", label, Color("f3db98"))
 
 func modal(w: float, h: float, heading: String, width: float = 650.0, height: float = 470.0) -> Rect2:
 	draw_rect(Rect2(0, 0, w, h), Color(0.02, 0.05, 0.11, 0.75))
@@ -257,7 +264,7 @@ func draw_main_menu(w: float, h: float) -> void:
 	menu_button(Rect2(cx - 171, h * 0.38, 342, 56), "NEW ADVENTURE", "new")
 	menu_button(Rect2(cx - 171, h * 0.49, 342, 56), "CONTINUE JOURNEY", "continue", Color("9dacec"))
 	menu_button(Rect2(cx - 171, h * 0.60, 342, 56), "SETTINGS", "settings", Color("bca7c8"))
-	centered(cx, h - 19, "OFFLINE  |  RELIC HUNTERS UPDATE  |  v0.2", 14, Color("a4c3bf"))
+	centered(cx, h - 19, "OFFLINE  |  WORLDS BEYOND EXPANSION  |  v0.3", 14, Color("a4c3bf"))
 
 func draw_dialogue(w: float, h: float) -> void:
 	var r = Rect2(w * 0.16, h * 0.70, w * 0.68, h * 0.23)
@@ -308,6 +315,7 @@ func draw_quests(w: float, h: float) -> void:
 	text(Vector2(x, y + 221.0), ("[DONE] " if guard_done else "[    ] ") + "Stone Sentinels: %d/2    Reward: 100 coins + 15 max HP" % mini(2, game.hunted_sentinels), 16, Color("a2ead1") if guard_done else Color("e9e2cf"))
 	text(Vector2(x, y + 269.0), "RELIC HUNT: %d / 6 caches opened  |  %d shards left" % [game.opened_caches.size(), game.relic_shards], 17, Color("f2dba4"))
 	text(Vector2(x, y + 297.0), "Find glowing chests; bring relic shards to TARO for new abilities.", 15, Color("b9dbc8"))
+	text(Vector2(x, y + 332.0), game.expansion_quest_label(), 16, Color("b4e5f4"))
 	menu_button(Rect2(w / 2.0 - 139, r.end.y - 61, 278, 44), "BACK TO ADVENTURE", "resume")
 
 func draw_shop(w: float, h: float) -> void:
@@ -330,6 +338,44 @@ func draw_trainer(w: float, h: float) -> void:
 		menu_button(Rect2(w / 2.0 - 315.0, top, 630.0, 54.0), label, "train%d" % i, Color("75d9bd") if owned else Color("c6b3eb"))
 		centered(w / 2.0, top + 76.0, descriptions[i], 14, Color("bad4c7"))
 	menu_button(Rect2(w / 2.0 - 137.0, r.end.y - 56.0, 274.0, 41.0), "LEAVE TRAINING", "leave_trainer")
+
+func draw_portal_network(w: float, h: float) -> void:
+	var panel := modal(w, h, "PORTAL NETWORK - CHOOSE YOUR DESTINATION", 775, 535)
+	centered(w / 2.0, panel.position.y + 96.0, "Travel between discovered realms. Your progress is saved.", 16, Color("a7e8d8"))
+	for i in range(game.PORTAL_NAMES.size()):
+		var y: float = panel.position.y + 116.0 + float(i) * 77.0
+		if game.portal_unlocked[i]:
+			menu_button(Rect2(w / 2.0 - 316.0, y, 632.0, 55.0), game.PORTAL_NAMES[i], "portal%d" % i, Color("88e6d3"))
+		else:
+			var locked_rect := Rect2(w / 2.0 - 316.0, y, 632.0, 55.0)
+			box(locked_rect, Color("1a2733"), Color("586172"), 1.0)
+			centered(w / 2.0, y + 36, "LOCKED - " + game.PORTAL_NAMES[i], 18, Color("81909f"))
+	menu_button(Rect2(w / 2.0 - 143, panel.end.y - 61, 286, 44), "RETURN TO GAME", "resume")
+
+func draw_world_map(w: float, h: float) -> void:
+	var panel := modal(w, h, "AETHER REALM ATLAS", 845, 485)
+	centered(w / 2.0, panel.position.y + 98, "THE CONNECTED WORLD - WEST TO EAST", 18, Color("e9d29c"))
+	var xs := [0.0, 1900.0, 4750.0, 8400.0, 10800.0, 12900.0]
+	var names := ["MOONHAVEN", "WHISPERWOOD", "SUNKEN RUINS", "CRYSTAL HOLLOW", "SKY HIGHLANDS", "SHADOWFEN"]
+	var progress: float = clampf(game.player_pos.x / game.WORLD_WIDTH, 0.0, 1.0)
+	var left: float = w * 0.5 - 376.0
+	var y: float = panel.position.y + 197.0
+	draw_rect(Rect2(left, y, 752, 9), Color("203b48"))
+	draw_rect(Rect2(left, y, progress * 752.0, 9), Color("78d8ca"))
+	for i in range(xs.size()):
+		var bx: float = left + xs[i] / game.WORLD_WIDTH * 752.0
+		draw_circle(Vector2(bx, y + 4), 8, Color("f5d79a") if i >= 3 else Color("a9e4d2"))
+		var offset_y := 42.0 if i % 2 == 0 else -26.0
+		text(Vector2(bx - 35.0, y + offset_y), names[i], 12, Color("c7e0d9"))
+	centered(w / 2.0, panel.position.y + 332, "PORTALS UNLOCKED: %d / 4  |  Current region: %s" % [game.unlocked_portal_count(), game.area_name()], 16, Color("b0eee4"))
+	menu_button(Rect2(w / 2.0 - 143, panel.end.y - 60, 286, 43), "BACK TO ADVENTURE", "resume")
+
+func draw_realm_victory(w: float, h: float) -> void:
+	var panel := modal(w, h, "THE REALMS AWAKEN", 705, 425)
+	centered(w / 2.0, panel.position.y + 129.0, "You defeated the Shadowfen Guardian.", 21, Color("d8ffdf"))
+	centered(w / 2.0, panel.position.y + 168.0, "All three new worlds are free to explore again.", 17, Color("a5d4eb"))
+	menu_button(Rect2(w / 2.0 - 210, panel.position.y + 219, 420, 59), "CONTINUE EXPLORING", "explore_again")
+	menu_button(Rect2(w / 2.0 - 210, panel.position.y + 298, 420, 54), "RETURN TO MOONHAVEN", "village")
 
 func draw_pause(w: float, h: float) -> void:
 	var r = modal(w, h, "JOURNEY PAUSED", 507, 477)
@@ -354,5 +400,6 @@ func draw_victory(w: float, h: float) -> void:
 	var r = modal(w, h, "THE STAR SHINES AGAIN", 680, 393)
 	centered(w / 2.0, r.position.y + 118, "You defeated the Warden and restored the valley!", 19, Color("e9e1c7"))
 	centered(w / 2.0, r.position.y + 152, "The story ends, but Moonhaven lives on.", 18, Color("93e4c4"))
-	menu_button(Rect2(w / 2.0 - 202, r.position.y + 197, 404, 58), "RETURN TO MOONHAVEN", "village")
-	menu_button(Rect2(w / 2.0 - 202, r.position.y + 274, 404, 56), "MAIN MENU", "main")
+	menu_button(Rect2(w / 2.0 - 202, r.position.y + 185, 404, 55), "EXPLORE CRYSTAL HOLLOW", "explore_world")
+	menu_button(Rect2(w / 2.0 - 202, r.position.y + 246, 404, 49), "RETURN TO MOONHAVEN", "village")
+	menu_button(Rect2(w / 2.0 - 202, r.position.y + 305, 404, 43), "MAIN MENU", "main")
