@@ -1,0 +1,38 @@
+; ECHOES OF AETHER — Android 2D Adventure
+config_version=5
+
+[application]
+config/name="Echoes of Aether"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.5", "GL Compatibility")
+config/description="An original offline pixel-art action adventure"
+config/icon="res://assets/icon.png"
+
+[display]
+window/size/viewport_width=1152
+window/size/viewport_height=648
+window/size/window_width_override=1152
+window/size/window_height_override=648
+window/stretch/mode="canvas_items"
+window/handheld/orientation=4
+window/size/resizable=true
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+textures/canvas_textures/default_texture_filter=0
+renderer/driver/threads/thread_model=0
+environment/defaults/default_clear_color=Color(0.06, 0.09, 0.14, 1)
+
+[audio]
+buses/default_bus_layout="res://default_bus_layout.tres"
+
+[input_devices]
+pointing/emulate_mouse_from_touch=false
+
+[physics]
+2d/default_gravity=980.0
+
+[application/config]
+version="0.1.0"

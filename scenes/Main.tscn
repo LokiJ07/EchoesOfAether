@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/Game.gd" id="1_game"]
+[ext_resource type="Script" path="res://scripts/HUD.gd" id="2_hud"]
+
+[node name="Game" type="Node2D"]
+texture_filter = 1
+script = ExtResource("1_game")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+enabled = true
+position_smoothing_enabled = true
+position_smoothing_speed = 7.0
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="HUD" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("2_hud")
