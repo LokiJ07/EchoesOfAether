@@ -43,6 +43,14 @@ git remote add origin https://github.com/USERNAME/EchoesOfAether.git
 git push -u origin main
 ```
 
+## Update your existing Android installation (no uninstall)
+
+For future fixes, **do not uninstall the game**. Download the newest **successful** Actions artifact, extract the APK, and open it on your phone. Android should offer **Update** or **Install** over the current app. Keep the installed game and its local save data.
+
+The Android package ID stays `org.lokij.echoesofaether`, and the CI uses the same fixed development keystore. Each **new GitHub Actions run** now has a larger Android `versionCode`, and the workflow checks the APK package ID, versionCode and signing-certificate fingerprint before uploading it. A rerun of the *same* workflow run has the same versionCode; use a fresh run for a newer update.
+
+Your saved journey (`user://aether_save.json`) should persist through an in-place APK update. If Android reports **App not installed**, don't uninstall your old game: check whether the installed APK was signed with a different key or is a higher-version build. A package ID/signing certificate mismatch cannot be fixed simply by changing the version code.
+
 ## Controls
 
 | On Android | PC / Testing |

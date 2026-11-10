@@ -9,7 +9,11 @@ for name in required:
 contents=(r/"scripts/Game.gd").read_text()
 for mechanic in ["func _physics_process", "func attack", "func jump", "func dash", "func use_skill", "func damage_player", "func update_enemies", "func save_game", "func load_game", "func interact", "func buy_shop_item", "func boss_attack"]:
     assert mechanic in contents, f"Missing mechanic entry: {mechanic}"
-assert 'platform="Android"' in (r/'export_presets.cfg').read_text()
+preset=(r/'export_presets.cfg').read_text()
+assert 'platform="Android"' in preset
+assert 'package/unique_name="org.lokij.echoesofaether"' in preset, "Do not change package ID across updates"
+assert 'package/signed=true' in preset
+assert 'version/code=' in preset and 'version/name=' in preset
 print("PASS: core source, assets and Android export preset are present")
 
 # Verify all eagerly loaded PNG/WAV resources are actually in the project.
@@ -18,5 +22,6 @@ for m in re.findall(r'res://(assets/[a-zA-Z0-9_./-]+\.(?:png|wav))', contents):
 workflow=(r/'.github/workflows/android-apk.yml').read_text()
 for required in ['--export-debug Android', 'actions/upload-artifact@v4', 'GODOT_VERSION: "4.5.2"', 'editor_settings-4.5.tres']:
     assert required in workflow, f"Missing CI integration: {required}"
+assert 'GITHUB_RUN_NUMBER' in workflow and 'APKSIGNER' in workflow, "Missing Android update metadata/signature checks"
 assert 'window/handheld/orientation=4' in (r/'project.godot').read_text()
 print("PASS: referenced assets, Android CI build/export, and landscape orientation")
