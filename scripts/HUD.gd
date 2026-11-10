@@ -302,8 +302,8 @@ func draw_quests(w: float, h: float) -> void:
 	for i in range(entries.size()):
 		text(Vector2(x, y + i * 31.0), ("[DONE] " if done[i] else "[    ] ") + entries[i], 17, Color("83e6bf") if done[i] else Color("f3e4c4"))
 	text(Vector2(x, y + 154.0), "OPTIONAL HUNTS  -  automatic one-time rewards", 17, Color("ebd596"))
-	var moth_done := game.claimed_hunts.has("moth")
-	var guard_done := game.claimed_hunts.has("sentinel")
+	var moth_done: bool = game.claimed_hunts.has("moth")
+	var guard_done: bool = game.claimed_hunts.has("sentinel")
 	text(Vector2(x, y + 190.0), ("[DONE] " if moth_done else "[    ] ") + "Dusk Moths: %d/3    Reward: 75 coins + 1 potion" % mini(3, game.hunted_moths), 16, Color("a2ead1") if moth_done else Color("e9e2cf"))
 	text(Vector2(x, y + 221.0), ("[DONE] " if guard_done else "[    ] ") + "Stone Sentinels: %d/2    Reward: 100 coins + 15 max HP" % mini(2, game.hunted_sentinels), 16, Color("a2ead1") if guard_done else Color("e9e2cf"))
 	text(Vector2(x, y + 269.0), "RELIC HUNT: %d / 6 caches opened  |  %d shards left" % [game.opened_caches.size(), game.relic_shards], 17, Color("f2dba4"))
