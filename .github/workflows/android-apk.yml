@@ -41,6 +41,31 @@ jobs:
             git push origin HEAD:main
           fi
 
+      - name: Install v2 sprite processing dependencies
+        shell: bash
+        run: |
+          python3 -m pip install --user --disable-pip-version-check Pillow numpy
+
+      - name: Convert and import ALL original Higgsfield backgrounds and unique mob sprites
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/fetch_v2_art.py
+
+      # Preserve the compiled sprites as real project assets for all later builds.
+      - name: Commit actual processed v2 art to GitHub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        shell: bash
+        run: |
+          git add assets/v2_*.png
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "assets: import original Higgsfield Emberfall realm and unique mobs"
+            git push origin HEAD:main
+          fi
+
       - name: Set up Java 17 before Android SDK
         uses: actions/setup-java@v4
         with:
@@ -96,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_VERSION_CODE=$((GITHUB_RUN_NUMBER + 1))
-          BUILD_VERSION_NAME="1.0.${GITHUB_RUN_NUMBER}"
+          BUILD_VERSION_NAME="2.0.${GITHUB_RUN_NUMBER}"
           export BUILD_VERSION_CODE BUILD_VERSION_NAME
           python3 - <<'PY'
           import os
@@ -165,6 +190,18 @@ jobs:
           grep -Fq 'PASS: v1 offline backgrounds, animated poses, optional puzzles, rewards, exit, save migration, settings and boss telegraphs' /tmp/godot-v1.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V1 TEST FAILED)' /tmp/godot-v1.log; then exit 1; fi
 
+      - name: Verify v2 Emberfall gameplay, unique mobs, mobile controls, portals and saves
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v2_shattered_realms.gd 2>&1 | tee /tmp/godot-v2.log
+          grep -Fq 'PASS: v2 original Higgsfield art, 19 unique sprites, dungeon and new mobs' /tmp/godot-v2.log
+          grep -Fq 'PASS: relocated mobile joystick, action buttons, touch transforms and persistence' /tmp/godot-v2.log
+          grep -Fq 'PASS: old v1 saves upgrade to Emberfall and install-over progress survives' /tmp/godot-v2.log
+          grep -Fq 'PASS: optional fire puzzles, one-time rewards, emberling companion and hunt persistence' /tmp/godot-v2.log
+          grep -Fq 'PASS: chapter victory, multi-phase Cinder Warden and saved boss clear' /tmp/godot-v2.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V2 TEST FAILED)' /tmp/godot-v2.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -216,4 +253,5 @@ jobs:
             /tmp/godot-world.log
             /tmp/godot-v06.log
             /tmp/godot-v1.log
+            /tmp/godot-v2.log
           if-no-files-found: ignore

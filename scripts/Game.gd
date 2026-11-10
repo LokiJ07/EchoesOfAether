@@ -2,7 +2,17 @@ extends Node2D
 ## Echoes of Aether: offline, mobile-first, self-contained action adventure.
 ## All gameplay is simulated in world space. HUD stays in CanvasLayer screen space.
 
-const WORLD_WIDTH := 15800.0
+const WORLD_WIDTH := 23000.0
+const EMBER_START := 15800.0
+const CINDER_VAULT_START := 19800.0
+const EMBER_BRAZIERS = [16550.0, 18870.0, 20880.0]
+const EMBER_RUNE_PATTERNS = [[0, 2, 1], [2, 1, 0], [1, 0, 2]]
+const EMBER_RUNE_NAMES = ["FLAME", "ASH", "SPARK"]
+const EMBER_RUNE_CLUES = [
+	"The FLAME is born, the SPARK leaps, and the ASH settles.",
+	"The SPARK lights the path, the ASH falls, the FLAME returns.",
+	"Only ASH remains; then comes FLAME, and finally SPARK."
+]
 const FLOOR_Y := 500.0
 const GRAVITY := 1250.0
 const SKILL_COOLDOWN := 2.25
@@ -28,11 +38,11 @@ const ECHO_LORE = [
 	"Shadowfen's darkness can shelter the smallest light."
 ]
 const VISUALS_FILE = "user://aether_visuals.json"
-const PORTAL_NAMES = ["MOONHAVEN", "CRYSTAL HOLLOW", "CELESTIAL HIGHLANDS", "SHADOWFEN MARSH"]
-const PORTAL_LOCATIONS = [1720.0, 8660.0, 11050.0, 13240.0]
-const PORTAL_ARRIVALS = [1635.0, 8800.0, 11190.0, 13380.0]
-const BOSS_TYPES = ["boss", "crystal_titan", "sky_herald", "marsh_guardian"]
-const WORLD_BOSS_NAMES = ["WARDEN OF THE FADING STAR", "CRYSTAL TITAN", "SKY HERALD", "SHADOWFEN GUARDIAN"]
+const PORTAL_NAMES = ["MOONHAVEN", "CRYSTAL HOLLOW", "CELESTIAL HIGHLANDS", "SHADOWFEN MARSH", "EMBERFALL CITADEL"]
+const PORTAL_LOCATIONS = [1720.0, 8660.0, 11050.0, 13240.0, 16000.0]
+const PORTAL_ARRIVALS = [1635.0, 8800.0, 11190.0, 13380.0, 16120.0]
+const BOSS_TYPES = ["boss", "crystal_titan", "sky_herald", "marsh_guardian", "cinder_warden"]
+const WORLD_BOSS_NAMES = ["WARDEN OF THE FADING STAR", "CRYSTAL TITAN", "SKY HERALD", "SHADOWFEN GUARDIAN", "CINDER WARDEN"]
 const HERO_IDLE = preload("res://assets/hero_idle.png")
 const HERO_RUN = preload("res://assets/hero_run.png")
 const HERO_JUMP = preload("res://assets/hero_jump.png")
@@ -126,6 +136,19 @@ var puzzle_feedback := "TAP THE RUNES IN CLUE ORDER."
 var graphics_quality := 1
 var reduced_motion := false
 var realm_backdrops: Dictionary = {}
+var ember_art: Dictionary = {}
+var ember_boss_defeated := false
+var ember_braziers: Array = []
+var ember_puzzle_index := -1
+var ember_puzzle_progress := 0
+var ember_puzzle_feedback := ""
+var emberling_unlocked := false
+var emberling_active := true
+var emberling_pos := Vector2.ZERO
+var emberling_attack_cooldown := 0.0
+var emberling_attacks := 0
+var ember_hunt_counts: Dictionary = {}
+var ember_hunt_claimed: Array = []
 var healing_glow := 0.0
 var level_up_glow := 0.0
 var hero_impact := 0.0
@@ -149,6 +172,7 @@ func _ready() -> void:
 	load_visual_preferences()
 	create_world()
 	load_realm_backdrops()
+	load_ember_art()
 	camera.position = Vector2(575, 316)
 	camera.make_current()
 	music = AudioStreamPlayer.new()
@@ -195,6 +219,50 @@ func draw_realm_backdrop(region: int, region_start: float, region_end: float, le
 			Rect2(0.0, 0.0, src_width, float(texture.get_height())),
 			Color(1.0, 1.0, 1.0, 0.55 if graphics_quality == 2 else 0.42))
 
+func load_ember_art() -> void:
+	var ids: Array = ["citadel", "dungeon", "cinder_warden", "fire_imp", "emberling",
+		"slime", "moth", "beetle", "sentinel", "wisp", "crystal_bug", "sky_wisp",
+		"cloud_moth", "bog_slime", "bog_wisp", "ash_knight", "ember_wisp",
+		"boss", "crystal_titan", "sky_herald", "marsh_guardian"]
+	for id in ids:
+		var path: String = "res://assets/v2_%s.png" % id
+		if ResourceLoader.exists(path):
+			var resource: Resource = load(path)
+			if resource is Texture2D:
+				ember_art[id] = resource
+
+func draw_v2_background(texture: Texture2D, start: float, end: float, left: float, right: float) -> void:
+	if graphics_quality == 0: return
+	var tile_width: float = 1290.0
+	for i in range(int(ceilf((end - start) / tile_width))):
+		var x: float = start + float(i) * tile_width
+		var width: float = minf(tile_width, end - x)
+		if width <= 0.0 or x > right or x + width < left: continue
+		draw_texture_rect_region(texture, Rect2(x, -180, width, 730),
+			Rect2(0, 0, float(texture.get_width()) * width / tile_width, float(texture.get_height())),
+			Color(1, 1, 1, 0.83 if graphics_quality == 2 else 0.64))
+
+func draw_emberfall_scenery(left: float, right: float) -> void:
+	if right < EMBER_START: return
+	if ember_art.has("citadel"):
+		draw_v2_background(ember_art["citadel"], EMBER_START, CINDER_VAULT_START, left, right)
+	if ember_art.has("dungeon"):
+		draw_v2_background(ember_art["dungeon"], CINDER_VAULT_START, WORLD_WIDTH, left, right)
+	for i in range(20):
+		var x: float = EMBER_START + float(i) * 355.0
+		if x < left - 125.0 or x > right + 125.0: continue
+		var flame_h: float = 52.0 + float(i % 4) * 18.0
+		draw_rect(Rect2(x - 11, FLOOR_Y - 32, 22, 32), Color("654337"))
+		draw_colored_polygon(PackedVector2Array([Vector2(x - 13, FLOOR_Y - 32), Vector2(x, FLOOR_Y - 32 - flame_h), Vector2(x + 15, FLOOR_Y - 32)]), Color(1.0, 0.44, 0.12, 0.42))
+	for i in range(13):
+		var x: float = CINDER_VAULT_START + 135.0 + float(i) * 240.0
+		if x < left - 80 or x > right + 80: continue
+		draw_rect(Rect2(x - 16, 147, 32, 352), Color(0.16, 0.1, 0.15, 0.72))
+		draw_rect(Rect2(x - 24, 154, 50, 16), Color("5b4850"))
+	for plaque in [{"x": 15950.0, "name": "EMBERFALL CITADEL"}, {"x": 20070.0, "name": "CINDER VAULT - GATEHOUSE"}, {"x": 21050.0, "name": "FURNACE HALL"}, {"x": 22100.0, "name": "CINDER THRONE"}]:
+		if float(plaque["x"]) > left and float(plaque["x"]) < right:
+			draw_label(Vector2(float(plaque["x"]), 182), str(plaque["name"]), 25, Color("ffdeb1"))
+
 func play_sfx(name: String) -> void:
 	if not sound_on: return
 	var clip = load("res://assets/fx_%s.wav" % name)
@@ -216,7 +284,14 @@ func create_world() -> void:
 		Rect2(9640, 411, 160, 18), Rect2(9910, 343, 150, 18),
 		Rect2(11380, 414, 185, 18), Rect2(12070, 365, 180, 18),
 		Rect2(13680, 421, 160, 18), Rect2(14200, 382, 162, 18),
-		Rect2(14700, 420, 175, 18)
+		Rect2(14700, 420, 175, 18),
+		# Emberfall: broad safe platforms with optional vertical routes.
+		Rect2(16380, 412, 190, 18), Rect2(16920, 375, 175, 18),
+		Rect2(17380, 416, 190, 18), Rect2(17940, 370, 188, 18),
+		Rect2(18500, 418, 170, 18), Rect2(19200, 374, 186, 18),
+		Rect2(20050, 420, 172, 18), Rect2(20510, 370, 182, 18),
+		Rect2(21100, 413, 198, 18), Rect2(21710, 377, 174, 18),
+		Rect2(22240, 426, 192, 18)
 	]
 	traps = [Rect2(2650, 494, 135, 130), Rect2(3480, 494, 150, 130),
 		Rect2(5210, 494, 150, 130), Rect2(9350, 494, 120, 130),
@@ -228,6 +303,9 @@ func create_world() -> void:
 	]
 	poison_pools = [Rect2(13580, 480, 114, 22), Rect2(14020, 480, 132, 22),
 		Rect2(14800, 480, 135, 22)]
+	# Furnace hazards are short and clearly visible; every main route is passable.
+	poison_pools.append_array([Rect2(17320, 478, 105, 22), Rect2(18440, 478, 115, 22),
+		Rect2(20960, 478, 96, 22)])
 	spawn_enemies()
 
 func spawn_enemies() -> void:
@@ -263,16 +341,27 @@ func spawn_enemies() -> void:
 		add_enemy("bog_wisp", x)
 	if not world_bosses_cleared[2]:
 		add_enemy("marsh_guardian", 15310.0)
+	# Chapter II enemies persist as defeated through the original save state.
+	for x in [16350.0, 17180.0, 17950.0, 18760.0, 20260.0, 20920.0]:
+		add_enemy("fire_imp", x)
+	for x in [16780.0, 18180.0, 19450.0, 21380.0]:
+		add_enemy("ash_knight", x)
+	for x in [17540.0, 19600.0, 21680.0]:
+		add_enemy("ember_wisp", x)
+	if not ember_boss_defeated:
+		add_enemy("cinder_warden", 22400.0)
 
 func add_enemy(kind: String, x: float) -> void:
 	var life = {"slime": 30.0, "moth": 22.0, "beetle": 45.0, "sentinel": 68.0, "wisp": 30.0,
 		"boss": 290.0, "crystal_bug": 76.0, "crystal_wisp": 55.0,
 		"sky_wisp": 62.0, "cloud_moth": 58.0, "bog_slime": 100.0, "bog_wisp": 74.0,
-		"crystal_titan": 430.0, "sky_herald": 515.0, "marsh_guardian": 650.0}[kind]
+		"crystal_titan": 430.0, "sky_herald": 515.0, "marsh_guardian": 650.0,
+		"fire_imp": 90.0, "ash_knight": 152.0, "ember_wisp": 74.0, "cinder_warden": 850.0}[kind]
 	var walk = {"slime": 52.0, "moth": 80.0, "beetle": 98.0, "sentinel": 42.0, "wisp": 60.0,
 		"boss": 75.0, "crystal_bug": 102.0, "crystal_wisp": 94.0,
 		"sky_wisp": 115.0, "cloud_moth": 125.0, "bog_slime": 75.0, "bog_wisp": 93.0,
-		"crystal_titan": 85.0, "sky_herald": 115.0, "marsh_guardian": 100.0}[kind]
+		"crystal_titan": 85.0, "sky_herald": 115.0, "marsh_guardian": 100.0,
+		"fire_imp": 120.0, "ash_knight": 68.0, "ember_wisp": 115.0, "cinder_warden": 87.0}[kind]
 	enemies.append({"type": kind, "x": x, "origin": x, "y": FLOOR_Y, "hp": life, "max_hp": life,
 		"speed": walk, "dir": -1, "cooldown": rng.randf_range(0.5, 2.0), "stun": 0.0,
 		"phase": 1, "state": "patrol", "attack_anim": 0.0, "windup": 0.0, "seed_drop": kind == "slime"})
@@ -311,6 +400,7 @@ func _physics_process(dt: float) -> void:
 		update_projectiles(dt)
 		update_loot(dt)
 		update_particles(dt)
+		update_emberling(dt)
 		update_floating_text(dt)
 		update_camera()
 		stamina = minf(max_stamina, stamina + (25.0 if rune_upgrades[2] else 18.0) * dt)
@@ -367,6 +457,10 @@ func update_player(dt: float) -> void:
 		player_pos.x = 12900.0
 		velocity.x = 0.0
 		show_message("Sky Herald blocks the Shadowfen Marsh!", 2.1)
+	elif not expansion_completed and player_pos.x > EMBER_START - 80.0:
+		player_pos.x = EMBER_START - 80.0
+		velocity.x = 0.0
+		show_message("Shattered Realms unlocks after restoring Shadowfen.", 2.6)
 	on_ground = false
 	var floor := ground_y(player_pos.x)
 	if floor > 0.0 and player_pos.y >= floor and velocity.y >= 0.0:
@@ -396,7 +490,19 @@ func update_player(dt: float) -> void:
 	if player_pos.y > 850.0:
 		damage_player(999.0)
 	# Crossing each new biome makes it the respawn region without losing old checkpoints.
-	if player_pos.x > 13000.0 and checkpoint_x < 13000.0:
+	if player_pos.x > 21800.0 and checkpoint_x < 21800.0:
+		checkpoint_x = 21850.0
+		show_message("Checkpoint: Cinder Throne - the boss is ahead!", 2.8)
+		save_game()
+	elif player_pos.x > 20100.0 and checkpoint_x < 20100.0:
+		checkpoint_x = 20150.0
+		show_message("Checkpoint: Cinder Vault - Furnace Hall", 2.8)
+		save_game()
+	elif player_pos.x > 16080.0 and checkpoint_x < 16080.0:
+		checkpoint_x = 16110.0
+		show_message("Checkpoint: Emberfall Citadel", 2.8)
+		save_game()
+	elif player_pos.x > 13000.0 and checkpoint_x < 13000.0:
 		checkpoint_x = 13220.0
 		show_message("Checkpoint: Shadowfen Marsh", 2.4)
 		save_game()
@@ -537,6 +643,7 @@ func hit_enemy(e: Dictionary, amount: float) -> void:
 func enemy_died(e: Dictionary) -> void:
 	e["hp"] = 0.0
 	total_kills += 1
+	register_ember_hunt(str(e["type"]))
 	for milestone in [12, 30, 60]:
 		if total_kills >= milestone and not mastery_rewards.has(milestone):
 			mastery_rewards.append(milestone)
@@ -553,7 +660,17 @@ func enemy_died(e: Dictionary) -> void:
 	register_hunt(e["type"])
 	if rng.randf() < 0.13:
 		loot.append({"kind": "potion", "pos": Vector2(e["x"] - 15, e["y"] - 38), "t": 0.0, "amount": 1})
-	if e["type"] == "boss":
+	if e["type"] == "cinder_warden":
+		ember_boss_defeated = true
+		coins += 350
+		relic_shards += 3
+		max_hp += 25.0
+		hp = max_hp
+		show_message("CINDER WARDEN DEFEATED! Emberfall Restored.", 5.0)
+		play_sfx("win")
+		state = "ember_victory"
+		save_game()
+	elif e["type"] == "boss":
 		defeated_boss = true
 		quest_stage = 3
 		portal_unlocked[1] = true
@@ -574,7 +691,8 @@ func enemy_died(e: Dictionary) -> void:
 				show_message("REALM SAVED! Next portal unlocked. +Max HP and coins!", 4.2)
 			else:
 				expansion_completed = true
-				show_message("ALL THREE REALMS RESTORED!", 5.0)
+				portal_unlocked[4] = true
+				show_message("SHADOWFEN RESTORED! EMBERFALL PORTAL UNLOCKED!", 5.0)
 				state = "realm_victory"
 			play_sfx("win")
 			save_game()
@@ -697,12 +815,12 @@ func update_enemies(dt: float) -> void:
 			if abs_distance < 67.0 and e["cooldown"] < 1.1:
 				damage_player(24.0 if e["phase"] == 2 else 16.0)
 			continue
-		if kind in ["moth", "wisp", "crystal_wisp", "sky_wisp", "cloud_moth", "bog_wisp"]:
+		if kind in ["moth", "wisp", "crystal_wisp", "sky_wisp", "cloud_moth", "bog_wisp", "ember_wisp"]:
 			e["y"] = FLOOR_Y - (112.0 if kind in ["moth", "cloud_moth", "sky_wisp"] else 84.0) + sin(elapsed * 2.8 + float(e["origin"]) * 0.07) * 23.0
 		if e["stun"] > 0.0: continue
 		if active:
 			e["dir"] = 1 if distance > 0.0 else -1
-			if kind in ["wisp", "crystal_wisp", "sky_wisp", "bog_wisp"]:
+			if kind in ["wisp", "crystal_wisp", "sky_wisp", "bog_wisp", "ember_wisp"]:
 				if abs_distance > 150.0:
 					e["x"] += float(e["dir"]) * e["speed"] * dt
 				elif abs_distance < 93.0:
@@ -729,7 +847,7 @@ func update_enemies(dt: float) -> void:
 			if absf(e["x"] - e["origin"]) > 115.0:
 				e["dir"] *= -1
 			var patrol_x: float = e["x"] + float(e["dir"]) * e["speed"] * 0.34 * dt
-			if kind in ["moth", "wisp", "crystal_wisp", "sky_wisp", "cloud_moth", "bog_wisp"] or ground_y(patrol_x) > 0.0:
+			if kind in ["moth", "wisp", "crystal_wisp", "sky_wisp", "cloud_moth", "bog_wisp", "ember_wisp"] or ground_y(patrol_x) > 0.0:
 				e["x"] = patrol_x
 			else:
 				e["dir"] *= -1
@@ -737,6 +855,13 @@ func update_enemies(dt: float) -> void:
 func boss_attack(e: Dictionary) -> void:
 	var advanced = e["phase"] == 2
 	e["cooldown"] = 2.25 if advanced else 3.1
+	if e["type"] == "cinder_warden":
+		for i in range(5 if advanced else 3):
+			var arc: float = -0.36 + float(i) * (0.18 if advanced else 0.36)
+			bolts.append({"pos": Vector2(e["x"], e["y"] - 95), "vel": Vector2(signf(player_pos.x - e["x"]) * 240.0, arc * 285.0), "ttl": 2.8, "kind": "cinder", "damage": 17.0 if advanced else 12.0})
+		e["attack_anim"] = 0.65
+		spawn_dust(Vector2(e["x"], e["y"] - 76), Color("ff9649"), 21)
+		return
 	e["attack_anim"] = 0.58
 	var towards = signf(player_pos.x - e["x"])
 	for i in range(5 if advanced else 3):
@@ -831,6 +956,113 @@ func update_camera() -> void:
 func show_message(line: String, duration: float = 2.5) -> void:
 	message = line
 	message_time = duration
+
+func register_ember_hunt(kind: String) -> void:
+	if not kind in ["fire_imp", "ash_knight", "ember_wisp"]: return
+	var limit: int = 3 if kind == "fire_imp" else (2 if kind == "ash_knight" else 2)
+	var total: int = int(ember_hunt_counts.get(kind, 0)) + 1
+	ember_hunt_counts[kind] = total
+	if total >= limit and not ember_hunt_claimed.has(kind):
+		ember_hunt_claimed.append(kind)
+		coins += 85
+		relic_shards += 1
+		show_message("%s HUNT COMPLETE! +85 COINS AND 1 RELIC" % kind.replace("_", " ").to_upper(), 4.0)
+		save_game()
+
+func v2_quest_label() -> String:
+	if not expansion_completed: return "CHAPTER II: Restore Shadowfen to reach Emberfall"
+	if not emberling_unlocked: return "EMBERFALL: Rescue Emberling at the ruined watchtower"
+	if not ember_boss_defeated: return "CINDER VAULT: Defeat the Cinder Warden in the forge dungeon"
+	return "EMBERFALL RESTORED: Explore and solve optional braziers"
+
+func nearby_ember_brazier() -> int:
+	if player_pos.x < EMBER_START: return -1
+	for i in range(EMBER_BRAZIERS.size()):
+		if ember_braziers.has(i): continue
+		if absf(player_pos.x - EMBER_BRAZIERS[i]) < 98.0 and absf(player_pos.y - FLOOR_Y) < 130.0:
+			return i
+	return -1
+
+func open_ember_brazier(index: int) -> bool:
+	if state != "playing" or index < 0 or index >= EMBER_BRAZIERS.size() or ember_braziers.has(index):
+		return false
+	if absf(player_pos.x - EMBER_BRAZIERS[index]) > 104.0: return false
+	state = "ember_puzzle"
+	ember_puzzle_index = index
+	ember_puzzle_progress = 0
+	ember_puzzle_feedback = "READ THE CLUE. HINT AND EXIT ARE ALWAYS AVAILABLE."
+	touch_axis = 0.0
+	joystick_touch = -1
+	attack_touch.clear()
+	hold_attack = false
+	return true
+
+func leave_ember_puzzle() -> void:
+	ember_puzzle_index = -1
+	ember_puzzle_progress = 0
+	state = "playing"
+	ember_puzzle_feedback = ""
+	update_camera()
+
+func select_ember_rune(choice: int) -> bool:
+	if state != "ember_puzzle" or ember_puzzle_index < 0 or choice < 0 or choice > 2:
+		return false
+	var pattern: Array = EMBER_RUNE_PATTERNS[ember_puzzle_index]
+	if int(pattern[ember_puzzle_progress]) != choice:
+		ember_puzzle_progress = 0
+		ember_puzzle_feedback = "NOT QUITE. RETRY WITHOUT PENALTY OR USE THE HINT."
+		return false
+	ember_puzzle_progress += 1
+	play_sfx("loot")
+	if ember_puzzle_progress < 3:
+		ember_puzzle_feedback = "CORRECT! %d / 3 RUNES" % ember_puzzle_progress
+		return true
+	var completed: int = ember_puzzle_index
+	if not ember_braziers.has(completed):
+		ember_braziers.append(completed)
+		coins += 100
+		relic_shards += 1
+		show_message("BRAZIER RESTORED! +100 coins and +1 relic", 4.0)
+		save_game()
+	ember_puzzle_index = -1
+	ember_puzzle_progress = 0
+	state = "playing"
+	spawn_dust(Vector2(EMBER_BRAZIERS[completed], FLOOR_Y - 60), Color("ffbc74"), 20)
+	return true
+
+func rescue_emberling() -> bool:
+	if state != "playing" or not expansion_completed or emberling_unlocked or absf(player_pos.x - 16870.0) > 105.0:
+		return false
+	emberling_unlocked = true
+	emberling_active = true
+	emberling_pos = player_pos + Vector2(-55, -95)
+	emberling_attack_cooldown = 0.7
+	show_message("EMBERLING RESCUED! Your companion follows and protects you.", 4.0)
+	play_sfx("win")
+	save_game()
+	return true
+
+func toggle_emberling() -> void:
+	if not emberling_unlocked: return
+	emberling_active = not emberling_active
+	show_message("EMBERLING: %s" % ("FOLLOWING" if emberling_active else "RESTING"), 2.2)
+	save_game()
+
+func update_emberling(dt: float) -> void:
+	if not emberling_unlocked or not emberling_active: return
+	var target: Vector2 = player_pos + Vector2(-65.0 * float(facing), -97.0 + sin(elapsed * 3.0) * 9.0)
+	if emberling_pos.distance_to(target) > 500.0: emberling_pos = target
+	else: emberling_pos = emberling_pos.lerp(target, minf(1.0, dt * 4.5))
+	emberling_attack_cooldown = maxf(0.0, emberling_attack_cooldown - dt)
+	if emberling_attack_cooldown > 0.0: return
+	for e in enemies:
+		if e["hp"] <= 0.0 or (e["type"] == "boss" and quest_stage < 2): continue
+		if absf(float(e["x"]) - player_pos.x) > 290.0: continue
+		emberling_attack_cooldown = 2.0
+		emberling_attacks += 1
+		spawn_dust(Vector2(float(e["x"]), float(e["y"]) - 45), Color("ffb36d"), 8)
+		hit_enemy(e, 11.0 + float(level) * 2.0)
+		return
 
 func unlocked_portal_count() -> int:
 	var count := 0
@@ -1025,6 +1257,8 @@ func hero_animation_params() -> Dictionary:
 
 func nearby_npc() -> String:
 	if nearby_portal_index() >= 0: return "portal"
+	if nearby_ember_brazier() >= 0: return "ember_brazier"
+	if expansion_completed and not emberling_unlocked and absf(player_pos.x - 16870.0) < 105.0: return "emberling"
 	if nearby_shrine_index() >= 0: return "shrine"
 	if nearby_cache_index() >= 0: return "cache"
 	if absf(player_pos.x - 415.0) < 105.0: return "mira"
@@ -1035,6 +1269,12 @@ func nearby_npc() -> String:
 
 func interact() -> void:
 	if state != "playing": return
+	if nearby_ember_brazier() >= 0:
+		open_ember_brazier(nearby_ember_brazier())
+		return
+	if expansion_completed and not emberling_unlocked and absf(player_pos.x - 16870.0) < 105.0:
+		rescue_emberling()
+		return
 	if nearby_shrine_index() >= 0:
 		open_echo_puzzle(nearby_shrine_index())
 		return
@@ -1108,6 +1348,16 @@ func start_new_game() -> void:
 	total_kills = 0
 	mastery_rewards.clear()
 	awakened_shrines.clear()
+	ember_braziers.clear()
+	ember_boss_defeated = false
+	emberling_unlocked = false
+	emberling_active = true
+	emberling_attacks = 0
+	ember_hunt_counts.clear()
+	ember_hunt_claimed.clear()
+	emberling_pos = Vector2.ZERO
+	ember_puzzle_index = -1
+	ember_puzzle_progress = 0
 	puzzle_index = -1
 	puzzle_progress = 0
 	dash_cooldown = 0.0
@@ -1133,7 +1383,7 @@ func start_new_game() -> void:
 	hunted_sentinels = 0
 	claimed_hunts.clear()
 	floating_text.clear()
-	portal_unlocked = [true, false, false, false]
+	portal_unlocked = [true, false, false, false, false]
 	world_bosses_cleared = [false, false, false]
 	expansion_completed = false
 	coyote_timer = 0.0
@@ -1187,9 +1437,13 @@ func save_game() -> void:
 		"hunt_moths": hunted_moths, "hunt_sentinels": hunted_sentinels,
 		"claimed_hunts": claimed_hunts,
 		"portal_unlocked": portal_unlocked, "world_bosses_cleared": world_bosses_cleared,
-		"expansion_completed": expansion_completed, "save_version": 10,
+		"expansion_completed": expansion_completed,
 		"total_kills": total_kills, "mastery_rewards": mastery_rewards,
-		"awakened_shrines": awakened_shrines}
+		"awakened_shrines": awakened_shrines,
+		"ember_boss_defeated": ember_boss_defeated, "ember_braziers": ember_braziers,
+		"emberling_unlocked": emberling_unlocked, "emberling_active": emberling_active,
+		"ember_hunts": ember_hunt_counts, "ember_hunt_claimed": ember_hunt_claimed,
+		"save_version": 20}
 	var file = FileAccess.open("user://aether_save.json", FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(values))
@@ -1229,10 +1483,13 @@ func load_game() -> bool:
 	claimed_hunts = data.get("claimed_hunts", [])
 	# Version 1/2 saves unlock Crystal Hollow if the old Star Warden is defeated.
 	var old_boss: bool = bool(data.get("boss", false))
-	portal_unlocked = data.get("portal_unlocked", [true, old_boss, false, false])
+	portal_unlocked = data.get("portal_unlocked", [true, old_boss, false, false, false])
 	world_bosses_cleared = data.get("world_bosses_cleared", [false, false, false])
-	if portal_unlocked.size() != 4:
-		portal_unlocked = [true, old_boss, false, false]
+	# Extend v1's four portals to five without resetting unlock progress.
+	if portal_unlocked.size() == 4:
+		portal_unlocked.append(false)
+	elif portal_unlocked.size() != 5:
+		portal_unlocked = [true, old_boss, false, false, false]
 	if world_bosses_cleared.size() != 3:
 		world_bosses_cleared = [false, false, false]
 	portal_unlocked[0] = true
@@ -1243,6 +1500,32 @@ func load_game() -> bool:
 	if world_bosses_cleared[1]:
 		portal_unlocked[3] = true
 	expansion_completed = bool(data.get("expansion_completed", false)) or bool(world_bosses_cleared[2])
+	portal_unlocked[4] = expansion_completed
+	ember_boss_defeated = bool(data.get("ember_boss_defeated", false))
+	ember_braziers.clear()
+	var saved_braziers = data.get("ember_braziers", [])
+	if saved_braziers is Array:
+		for entry in saved_braziers:
+			var index: int = int(entry)
+			if index >= 0 and index < EMBER_BRAZIERS.size() and not ember_braziers.has(index):
+				ember_braziers.append(index)
+	ember_hunt_counts.clear()
+	var raw_ember_hunts = data.get("ember_hunts", {})
+	if raw_ember_hunts is Dictionary:
+		for kind in ["fire_imp", "ash_knight", "ember_wisp"]:
+			ember_hunt_counts[kind] = maxi(0, int(raw_ember_hunts.get(kind, 0)))
+	ember_hunt_claimed.clear()
+	var raw_claimed = data.get("ember_hunt_claimed", [])
+	if raw_claimed is Array:
+		for kind in raw_claimed:
+			if str(kind) in ["fire_imp", "ash_knight", "ember_wisp"] and not ember_hunt_claimed.has(str(kind)):
+				ember_hunt_claimed.append(str(kind))
+	emberling_unlocked = bool(data.get("emberling_unlocked", false))
+	emberling_active = bool(data.get("emberling_active", true))
+	emberling_pos = Vector2.ZERO
+	emberling_attack_cooldown = 0.5
+	ember_puzzle_index = -1
+	ember_puzzle_progress = 0
 	total_kills = maxi(0, int(data.get("total_kills", 0)))
 	# JSON numeric arrays can contain floats; normalize milestone IDs to integers
 	# before using Array.has(), so the reward never repeats after reopening the app.
@@ -1276,6 +1559,30 @@ func load_game() -> bool:
 	spawn_enemies()
 	return true
 
+func hud_event_position(event: InputEvent) -> Vector2:
+	# Correct Android touch coordinates under Godot canvas_items/stretch/aspect=expand.
+	var inverse_hud: Transform2D = hud.get_global_transform_with_canvas().affine_inverse()
+	if event is InputEventScreenTouch:
+		return inverse_hud * event.position
+	if event is InputEventScreenDrag:
+		return inverse_hud * event.position
+	if event is InputEventMouse:
+		return inverse_hud * event.position
+	return Vector2.ZERO
+
+func mobile_action_at(pos: Vector2) -> String:
+	var chosen := ""
+	var closest_ratio: float = 1.0
+	var centers: Dictionary = hud.control_centers()
+	for key in ["attack", "jump", "dash", "skill", "guard", "potion", "interact"]:
+		if key == "interact" and nearby_npc() == "": continue
+		var radius: float = (58.0 if key == "attack" else (51.0 if key in ["jump", "skill", "guard"] else 46.0)) * hud.active_control_scale()
+		var ratio: float = pos.distance_to(centers[key]) / radius
+		if ratio < closest_ratio:
+			closest_ratio = ratio
+			chosen = key
+	return chosen
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key = event.keycode
@@ -1289,6 +1596,8 @@ func _input(event: InputEvent) -> void:
 				hud.save_control_layout()
 				state = "settings"
 			elif state == "puzzle": leave_echo_puzzle()
+			elif state == "ember_puzzle": leave_ember_puzzle()
+			elif state == "ember_victory": state = "playing"
 			elif state in ["pause", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "realm_victory"]: state = "playing"
 		elif state == "playing":
 			match key:
@@ -1306,31 +1615,31 @@ func _input(event: InputEvent) -> void:
 			elif state in ["defeat", "victory"]: respawn()
 	if event is InputEventScreenTouch:
 		if state == "hud_edit":
-			if event.pressed: hud.editor_touch_press(event.position, event.index)
+			if event.pressed: hud.editor_touch_press(hud_event_position(event), event.index)
 			else: hud.editor_touch_release(event.index)
 			return
 		if event.pressed:
-			touch_press(event.position, event.index)
+			touch_press(hud_event_position(event), event.index)
 		else:
 			touch_release(event.index)
 	elif event is InputEventScreenDrag:
 		if state == "hud_edit":
-			hud.editor_touch_drag(event.position, event.index)
+			hud.editor_touch_drag(hud_event_position(event), event.index)
 			return
 		if event.index == joystick_touch:
-			touch_axis = joystick_axis_from_position(event.position)
+			touch_axis = joystick_axis_from_position(hud_event_position(event))
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if state == "hud_edit":
-			if event.pressed: hud.editor_touch_press(event.position, 999)
+			if event.pressed: hud.editor_touch_press(hud_event_position(event), 999)
 			else: hud.editor_touch_release(999)
 			return
-		if event.pressed: touch_press(event.position, 999)
+		if event.pressed: touch_press(hud_event_position(event), 999)
 		else: touch_release(999)
 	elif event is InputEventMouseMotion:
 		if state == "hud_edit":
-			hud.editor_touch_drag(event.position, 999)
+			hud.editor_touch_drag(hud_event_position(event), 999)
 		elif joystick_touch == 999:
-			touch_axis = joystick_axis_from_position(event.position)
+			touch_axis = joystick_axis_from_position(hud_event_position(event))
 
 func joystick_axis_from_position(pos: Vector2) -> float:
 	var axis := clampf((pos.x - joystick_base.x) / (78.0 * hud.active_control_scale()), -1.0, 1.0)
@@ -1344,29 +1653,33 @@ func touch_press(pos: Vector2, id: int) -> void:
 		if hud.handle_menu_press(pos): return
 		if dialogue != "": dialogue = ""
 		return
-	if hud.handle_top_press(pos): return
-	var controls = hud.control_centers()
-	for key in controls:
-		var center: Vector2 = controls[key]
-		var hit_radius: float = (58.0 if key == "attack" else (51.0 if key in ["jump", "skill", "guard"] else 46.0)) * hud.active_control_scale()
-		if center.distance_to(pos) < hit_radius:
-			match key:
-				"attack":
-					attack()
-					attack_touch[id] = true
-					hold_attack = true
-				"jump": jump()
-				"dash": dash()
-				"skill": use_skill()
-				"guard": guard()
-				"potion": heal()
-				"interact": interact()
-			return
-	if pos.distance_to(hud.joystick_center()) < 111.0 * hud.active_control_scale() and joystick_touch < 0:
+	# Controls are resolved by their actual relocated centers, never the original layout.
+	# Do not iterate "joystick" as an action (that previously swallowed taps).
+	var action: String = mobile_action_at(pos)
+	var stick_ratio: float = pos.distance_to(hud.joystick_center()) / (111.0 * hud.active_control_scale())
+	var action_ratio := 2.0
+	if action != "":
+		var radius: float = (58.0 if action == "attack" else (51.0 if action in ["jump", "skill", "guard"] else 46.0)) * hud.active_control_scale()
+		action_ratio = pos.distance_to(hud.control_centers()[action]) / radius
+	if joystick_touch < 0 and stick_ratio < 1.0 and stick_ratio <= action_ratio:
 		joystick_touch = id
-		# Always anchor on the visual thumbstick for predictable directional input.
 		joystick_base = hud.joystick_center()
 		touch_axis = joystick_axis_from_position(pos)
+		return
+	if action != "":
+		match action:
+			"attack":
+				attack()
+				attack_touch[id] = true
+				hold_attack = true
+			"jump": jump()
+			"dash": dash()
+			"skill": use_skill()
+			"guard": guard()
+			"potion": heal()
+			"interact": interact()
+		return
+	if hud.handle_top_press(pos): return
 
 func touch_release(id: int) -> void:
 	if state == "hud_edit":
@@ -1385,7 +1698,10 @@ func area_name() -> String:
 	if player_pos.x < 8400.0: return "ASTRAL SANCTUM"
 	if player_pos.x < 10800.0: return "CRYSTAL HOLLOW"
 	if player_pos.x < 12900.0: return "CELESTIAL HIGHLANDS"
-	return "SHADOWFEN MARSH"
+	if player_pos.x < EMBER_START: return "SHADOWFEN MARSH"
+	if player_pos.x < CINDER_VAULT_START: return "EMBERFALL CITADEL"
+	if player_pos.x < 21800.0: return "CINDER VAULT - FURNACE HALL"
+	return "CINDER VAULT - CINDER THRONE"
 
 func hero_sprite_scale() -> Vector2:
 	return Vector2(float(facing), 1.0)
@@ -1396,11 +1712,11 @@ func _draw() -> void:
 	var left = camera_x - view_half - 190.0
 	var right = camera_x + view_half + 190.0
 	# Original layered pixel-art world: skyline, silhouettes, interactive structures and moving light.
-	for region in range(6):
-		var x0: float = [0.0, 1900.0, 4750.0, 8400.0, 10800.0, 12900.0][region]
-		var x1: float = [1900.0, 4750.0, 8400.0, 10800.0, 12900.0, WORLD_WIDTH][region]
+	for region in range(8):
+		var x0: float = [0.0, 1900.0, 4750.0, 8400.0, 10800.0, 12900.0, EMBER_START, CINDER_VAULT_START][region]
+		var x1: float = [1900.0, 4750.0, 8400.0, 10800.0, 12900.0, EMBER_START, CINDER_VAULT_START, WORLD_WIDTH][region]
 		var sky: Color = [Color("274b64"), Color("203c51"), Color("252a48"),
-			Color("152e45"), Color("477494"), Color("222e43")][region]
+			Color("152e45"), Color("477494"), Color("222e43"), Color("4e2525"), Color("29202c")][region]
 		draw_rect(Rect2(x0, -250, x1 - x0, 780), sky)
 		draw_realm_backdrop(region, x0, x1, left, right)
 		for band in range(14):
@@ -1441,18 +1757,19 @@ func _draw() -> void:
 			draw_texture_rect(RUIN, Rect2(rx - 55, 282 - float(i % 3) * 36, 110, 235 + float(i % 3) * 36), false, Color(0.65, 0.7, 0.9, 0.78))
 	# Unique scenery for three new, fully connected lands.
 	draw_expansion_scenery(left, right)
+	draw_emberfall_scenery(left, right)
 	# Terrain below the playable floor, interrupted by jumpable pits.
 	var first = int(maxf(0.0, floorf((left - 96.0) / 48.0)))
 	var last = int(minf(WORLD_WIDTH / 48.0, ceilf((right + 96.0) / 48.0)))
 	for tile in range(first, last + 1):
 		var tx = float(tile) * 48.0
 		if ground_y(tx + 22.0) < 0.0: continue
-		var earth: Color = Color("243a35") if tx < 4750 else (Color("27283b") if tx < 8400 else (Color("133949") if tx < 10800 else (Color("29445b") if tx < 12900 else Color("203b32"))))
+		var earth: Color = Color("2d2428") if tx >= EMBER_START else (Color("243a35") if tx < 4750 else (Color("27283b") if tx < 8400 else (Color("133949") if tx < 10800 else (Color("29445b") if tx < 12900 else Color("203b32")))))
 		# Fill the complete visible ground on taller 4:3 tablets as well as wide phones.
 		var view_bottom: float = camera.position.y + get_viewport_rect().size.y * 0.5 / maxf(0.1, camera.zoom.y) + 90.0
 		draw_rect(Rect2(tx, FLOOR_Y + 10, 49, maxf(190.0, view_bottom - FLOOR_Y)), earth)
 		var ground_tex: Texture2D = GRASS if tx < 4750 or tx >= 12900 else ROCK
-		var ground_tint: Color = Color("bdefff") if tx >= 8400 and tx < 10800 else (Color("b0d8ee") if tx >= 10800 and tx < 12900 else Color.WHITE)
+		var ground_tint: Color = Color("ffb28d") if tx >= EMBER_START else (Color("bdefff") if tx >= 8400 and tx < 10800 else (Color("b0d8ee") if tx >= 10800 and tx < 12900 else Color.WHITE))
 		draw_texture_rect(ground_tex, Rect2(tx, FLOOR_Y - 1, 49, 46), false, ground_tint)
 		if tile % 3 == 1:
 			draw_rect(Rect2(tx + 22, FLOOR_Y + 57, 7, 10), Color(0.1, 0.11, 0.16, 0.65))
@@ -1506,6 +1823,24 @@ func _draw() -> void:
 		draw_rect(Rect2(chest_x - 24, FLOOR_Y - 39, 48, 36), Color("ffe1a0"), false, 2.0)
 		draw_rect(Rect2(chest_x - 5, FLOOR_Y - 29, 10, 13), Color("b4f5e0"))
 		draw_label(Vector2(chest_x - 29, FLOOR_Y - 57), "RELIC", 13, Color("ffebb6"))
+	for i in range(EMBER_BRAZIERS.size()):
+		var bx: float = EMBER_BRAZIERS[i]
+		if bx < left - 90 or bx > right + 90: continue
+		var lit: bool = ember_braziers.has(i)
+		draw_rect(Rect2(bx - 25, FLOOR_Y - 49, 50, 50), Color("4d3840"))
+		draw_rect(Rect2(bx - 31, FLOOR_Y - 55, 62, 11), Color("ad7153"))
+		draw_colored_polygon(PackedVector2Array([Vector2(bx - 16, FLOOR_Y - 56), Vector2(bx, FLOOR_Y - 104), Vector2(bx + 18, FLOOR_Y - 56)]), Color("ffe09a") if lit else Color("fc8a5b"))
+		draw_circle(Vector2(bx, FLOOR_Y - 79), 29, Color(1, 0.32, 0.1, 0.12))
+		draw_label(Vector2(bx - 30, FLOOR_Y - 116), "RESTORED" if lit else "FIRE RUNES", 13, Color("ffe3aa"))
+	if not emberling_unlocked and left < 17030.0 and right > 16730.0:
+		draw_rect(Rect2(16835, FLOOR_Y - 76, 70, 76), Color("704a3d"))
+		draw_rect(Rect2(16835, FLOOR_Y - 76, 70, 76), Color("c48d68"), false, 3.0)
+		draw_label(Vector2(16800, FLOOR_Y - 99), "RESCUE EMBERLING", 14, Color("ffe0a2"))
+	if emberling_unlocked and emberling_active:
+		if ember_art.has("emberling"):
+			draw_texture_rect(ember_art["emberling"], Rect2(emberling_pos - Vector2(30, 31), Vector2(60, 62)), false)
+		else:
+			draw_circle(emberling_pos, 17.0, Color("ffb879"))
 	for npc in [{"x": 415.0,"name": "MIRA"}, {"x": 1030.0,"name": "LYRA"}, {"x": 1510.0,"name": "TARO"}]:
 		if absf(npc["x"] - camera_x) > 680.0: continue
 		var bob = 2.0 * sin(elapsed * 1.5 + npc["x"])
@@ -1536,19 +1871,20 @@ func _draw() -> void:
 		draw_texture_rect(PORTAL, Rect2(gate_x - 46.0, FLOOR_Y - 166, 92, 167), false, portal_color)
 		draw_label(Vector2(gate_x - 63.0, FLOOR_Y - 185), "PORTAL - " + ("ACTIVE" if lit else "SEALED"), 14, Color("cbf7e2") if lit else Color("b4a4c1"))
 	for e in enemies:
-		if e["hp"] <= 0.0 or absf(e["x"] - camera_x) > 730.0: continue
+		if e["hp"] <= 0.0 or absf(e["x"] - camera_x) > (right - left) * 0.55: continue
 		if e["type"] == "boss" and quest_stage < 2: continue
-		var texture: Texture2D
-		match e["type"]:
-			"slime", "bog_slime": texture = SLIME
-			"moth", "cloud_moth": texture = MOTH
-			"beetle", "crystal_bug": texture = BEETLE
-			"sentinel": texture = SENTINEL
-			"wisp", "crystal_wisp", "sky_wisp", "bog_wisp": texture = WISP
-			_: texture = BOSS
+		var texture: Texture2D = ember_art.get(str(e["type"]), null)
+		if texture == null:
+			match e["type"]:
+				"slime", "bog_slime", "fire_imp": texture = SLIME
+				"moth", "cloud_moth": texture = MOTH
+				"beetle", "crystal_bug": texture = BEETLE
+				"sentinel", "ash_knight": texture = SENTINEL
+				"wisp", "crystal_wisp", "sky_wisp", "bog_wisp", "ember_wisp": texture = WISP
+				_: texture = BOSS
 		var scale: float = 2.65 if BOSS_TYPES.has(e["type"]) else 1.05
-		var height: float = 53.0 * scale
-		var width: float = 54.0 * scale
+		var height: float = 220.0 if e["type"] == "cinder_warden" else 53.0 * scale
+		var width: float = 158.0 if e["type"] == "cinder_warden" else 54.0 * scale
 		var tint: Color = Color.WHITE
 		match e["type"]:
 			"crystal_bug", "crystal_wisp", "crystal_titan": tint = Color("86dff6")
@@ -1565,6 +1901,9 @@ func _draw() -> void:
 		var bob: float = 0.0 if reduced_motion else sin(elapsed * (3.0 if BOSS_TYPES.has(e["type"]) else 5.0) + float(e["origin"])) * (3.0 if BOSS_TYPES.has(e["type"]) else 2.0)
 		if e["attack_anim"] > 0.0: bob -= 7.0
 		draw_texture_rect(texture, Rect2(e["x"] - width / 2.0, e["y"] - height + bob, width, height), false, tint)
+		if not BOSS_TYPES.has(e["type"]):
+			var species_name: String = str(e["type"]).replace("_", " ").to_upper()
+			draw_label(Vector2(e["x"] - width * 0.5, e["y"] - height - 22), species_name, 12, Color("e7f6e6"))
 		if e["hp"] < e["max_hp"] or BOSS_TYPES.has(e["type"]):
 			var fraction: float = clampf(e["hp"] / e["max_hp"], 0.0, 1.0)
 			draw_rect(Rect2(e["x"] - width / 2.0, e["y"] - height - 14, width, 6), Color("1c1727"))
@@ -1579,7 +1918,7 @@ func _draw() -> void:
 			draw_label(glow_center + Vector2(-18, -25), "SEED", 13, Color("d8ffad"))
 		draw_texture_rect(art, Rect2(item["pos"].x - 13, item["pos"].y - 13 + bob, 26, 26), false)
 	for b in bolts:
-		var tint = Color("5be7e4") if b["kind"] == "hero" else Color("cf6de9")
+		var tint = Color("5be7e4") if b["kind"] == "hero" else (Color("ff9d54") if b["kind"] == "cinder" else Color("cf6de9"))
 		var halo: Color = tint
 		halo.a = 0.19
 		draw_circle(b["pos"], 14.0 if b["kind"] == "hero" else 10.0, halo)

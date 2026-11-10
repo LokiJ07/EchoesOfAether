@@ -1,3 +1,29 @@
+# ECHOES OF AETHER — v2.0 SHATTERED REALMS (EMBERFALL MILESTONE)
+
+**Status:** First complete playable v2.0 chapter — Emberfall Citadel + Cinder Vault dungeon, not yet the Abyssal Depths or Everdawn Gardens. The longer v2 roadmap is documented below; new lands will only be called playable once implemented and CI-verified.
+
+### Player-visible improvements
+
+- **Longer connected game:** The world expands from 15,800 to 23,000 world units. Chapter II becomes available after clearing Shadowfen. Emberfall Citadel is followed by the separate-looking Cinder Vault dungeon (Gatehouse, Furnace Hall, Cinder Throne), and a new Cinder Warden boss with a two-phase fireball attack and on-screen warning.
+- **21 ACTUAL generated art assets**, sourced from Higgsfield and imported into Godot: volcanic Citadel background, molten dungeon, Cinder Warden, Emberling pet, Fire Imp, 12 distinct ordinary mob designs, 4 distinct realm-boss designs. PNG image processing converts chroma-green sheets to transparent per-species sprites. All are packed into the APK; **no live network required**.
+- **Mob identity overhaul:** Old forest/slime/moth/beetle/sentinel/wisp, crystal/sky/marsh monsters and original bosses now load separate visual sprites rather than displaying the same image with different color tints. Enemy names are visible above sprites, while existing behaviors, health, damage and attack telegraphs remain functional.
+- **Controls that actually move:** Fixed a bug where the joystick was accidentally included in the action-button hit test, swallowing touch presses after custom HUD repositioning. The engine now converts Android event coordinates into local HUD space, resolves the nearest *visible* action, and uses the actual saved on-screen control positions. You can reposition joystick, Attack, Jump, Guard, Dash, Potion, etc.; the hit zones follow.
+- **New recognizable animated main menu:** Full-screen Higgsfield Emberfall poster art, dark cinematic split panel, gold/teal typography, smooth embers, large adventure buttons, and redesigned five-destination portal network and world atlas.
+- **Real Emberling companion:** Rescue the pet at the watchtower. It flies behind the hero, teleports to your position when fast-traveling rather than getting stuck, and automatically attacks nearby enemies. Rest/call it from Inventory.
+- **Three optional fire-rune puzzles**, with explicit hint and escape buttons, no HP or coin penalty on a wrong guess, and one-time 100-coin + relic rewards. Solving them is **never required** to enter the dungeon or beat the boss.
+- **Optional species hunts** for Fire Imps, Ash Knights, and Ember Wisps, with one-time rewards to extend exploration and progress. Permanent quest/save state.
+- **Save and APK continuity:** Legacy v0.1–v1.0 save format `user://aether_save.json` preserved, new saved keys default safely on old data. Existing `user://aether_controls.json` preferences continue. Same Android app ID and signing keystore, increasing versionCode for update-over-install. No uninstall required.
+
+### What this milestone does not yet include
+
+Abyssal Depths, Everdawn Gardens, a full multi-weapon inventory or a dedicated branching talent-tree GUI are **planned v2 expansions**, not implemented here. Do not label those features complete until built and tested.
+
+### Development / loop-engineering quality gates
+
+`tools/fetch_v2_art.py` processes Higgsfield originals into 21 separate `assets/v2_*.png` images; GitHub Actions embeds them and attempts to commit the processed files for future offline builds. Godot headless tests cover unique texture loading, repositioned real touchscreen hits, five-portal save migration, optional puzzle exits/rewards, companion behavior, multiple enemy hunts, boss phase 2, dungeon clear persistence, and the original v1 smoke tests. CI then builds and signs the same-package Android APK. **Physical-phone look-and-feel verification is still needed after CI succeeds.**
+
+---
+
 # ECHOES OF AETHER v1.0 — THE AETHER AWAKENING
 
 The **v1.0** release advances the existing offline Android game with smoother animation, interactive user interfaces, optional logic mini-games, original generated scenery, and clearer combat feedback. All four main realms, story quests, checkpoints, relics, saved progress, customizable mobile controls, and the existing package/signing identity remain intact.

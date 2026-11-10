@@ -1,0 +1,70 @@
+{
+  "title": "Echoes of Aether v2.0 Original Higgsfield-Generated Assets",
+  "version": 2,
+  "backgrounds": [
+    {
+      "id": "citadel",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_145215_a74a6806-c1de-4fa3-9c4a-b4064913253d.png"
+    },
+    {
+      "id": "dungeon",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_145216_0bbb9473-eae5-4ab2-9f66-13197ff8f79d.png"
+    }
+  ],
+  "individuals": [
+    {
+      "id": "cinder_warden",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_145215_812ee5b4-6f4d-49db-9b95-558ca6021f54.png"
+    },
+    {
+      "id": "fire_imp",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_145216_6a10b7b8-5a53-4cc2-8807-d3b1fd57ca45.png"
+    },
+    {
+      "id": "emberling",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_145215_8a7f96e5-0c59-4953-a980-5159757375b4.png"
+    }
+  ],
+  "sheets": [
+    {
+      "file": "v2_atlas_forest.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_145932_4401e0f4-6cbf-4d27-9383-c75a2d9ade9e.png",
+      "columns": 3,
+      "rows": 2,
+      "types": [
+        "slime",
+        "moth",
+        "beetle",
+        "sentinel",
+        "wisp",
+        "crystal_bug"
+      ]
+    },
+    {
+      "file": "v2_atlas_realm.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_145932_db2f159f-2a6b-4c0e-8482-c6f7cf9d8b52.png",
+      "columns": 3,
+      "rows": 2,
+      "types": [
+        "sky_wisp",
+        "cloud_moth",
+        "bog_slime",
+        "bog_wisp",
+        "ash_knight",
+        "ember_wisp"
+      ]
+    },
+    {
+      "file": "v2_atlas_boss.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_150011_c4bee82e-36c8-4b03-9d65-cd906863aa60.png",
+      "columns": 2,
+      "rows": 2,
+      "types": [
+        "boss",
+        "crystal_titan",
+        "sky_herald",
+        "marsh_guardian"
+      ]
+    }
+  ]
+}
