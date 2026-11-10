@@ -195,7 +195,7 @@ jobs:
         run: |
           set -o pipefail
           /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v2_shattered_realms.gd 2>&1 | tee /tmp/godot-v2.log
-          grep -Fq 'PASS: v2 original Higgsfield art, 19 unique sprites, dungeon and new mobs' /tmp/godot-v2.log
+          grep -Fq 'PASS: v2 original Higgsfield art, 20 unique sprites, dungeon and new mobs' /tmp/godot-v2.log
           grep -Fq 'PASS: relocated mobile joystick, action buttons, touch transforms and persistence' /tmp/godot-v2.log
           grep -Fq 'PASS: old v1 saves upgrade to Emberfall and install-over progress survives' /tmp/godot-v2.log
           grep -Fq 'PASS: optional fire puzzles, one-time rewards, emberling companion and hunt persistence' /tmp/godot-v2.log

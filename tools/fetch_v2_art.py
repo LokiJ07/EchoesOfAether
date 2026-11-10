@@ -12,7 +12,7 @@ import urllib.request
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 BASE = Path(__file__).resolve().parents[1]
 ASSETS = BASE / "assets"
@@ -94,8 +94,37 @@ for atlas in MANIFEST["sheets"]:
         y1 = round(((index // columns) + 1) * sheet.height / rows)
         save_sprite(sheet.crop((x0, y0, x1, y1)), kind)
 
+# One original sprite atlas cell was a Star Wisp; the Crystal Wisp was
+# previously reusing it. Produce a visually distinct aqua, jagged crystal
+# variant from that Higgsfield-painted source (no extra generation credits).
+crystal_path = ASSETS / "v2_crystal_wisp.png"
+if not crystal_path.is_file():
+    wisp = Image.open(ASSETS / "v2_wisp.png").convert("RGBA")
+    pixels = np.array(wisp, dtype=np.uint8)
+    mask = pixels[:, :, 3] > 0
+    r = pixels[:, :, 0].astype(np.float32)
+    g = pixels[:, :, 1].astype(np.float32)
+    b = pixels[:, :, 2].astype(np.float32)
+    pixels[:, :, 0][mask] = np.clip(r[mask] * 0.23 + 32, 0, 255).astype(np.uint8)
+    pixels[:, :, 1][mask] = np.clip(g[mask] * 0.72 + 62, 0, 255).astype(np.uint8)
+    pixels[:, :, 2][mask] = np.clip(b[mask] * 0.82 + 91, 0, 255).astype(np.uint8)
+    crystal = Image.fromarray(pixels, "RGBA")
+    draw = ImageDraw.Draw(crystal, "RGBA")
+    width, height = crystal.size
+    cx, cy = width * 0.5, height * 0.48
+    draw.polygon([(cx - 19, cy - 18), (cx - 4, cy - height * 0.35),
+                  (cx + 6, cy - 18)], fill=(66, 236, 253, 205))
+    draw.polygon([(cx + 17, cy + 3), (cx + width * 0.3, cy - 25),
+                  (cx + 23, cy + 34)], fill=(51, 170, 251, 215))
+    draw.polygon([(cx - 18, cy + 11), (cx - width * 0.3, cy - 7),
+                  (cx - 29, cy + 35)], fill=(130, 249, 244, 205))
+    draw.line([(cx - 4, cy - height * 0.35), (cx + 2, cy - 16)], fill=(226, 255, 255, 240), width=3)
+    crystal.save(crystal_path, optimize=True)
+    print("PASS: crystal_wisp has a unique recolored and faceted sprite", flush=True)
+
 required = [f"v2_{x['id']}.png" for x in MANIFEST["backgrounds"] + MANIFEST["individuals"]]
 required += [f"v2_{name}.png" for sheet in MANIFEST["sheets"] for name in sheet["types"]]
+required.append("v2_crystal_wisp.png")
 for name in required:
     path = ASSETS / name
     assert path.is_file(), f"Missing game sprite: {name}"

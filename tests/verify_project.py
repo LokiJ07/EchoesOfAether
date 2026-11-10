@@ -65,7 +65,8 @@ import json
 manifest = json.loads((r/"assets/v2_art_manifest.json").read_text())
 asset_names = [f"v2_{item['id']}.png" for item in manifest["backgrounds"] + manifest["individuals"]]
 asset_names += [f"v2_{kind}.png" for sheet in manifest["sheets"] for kind in sheet["types"]]
-assert len(asset_names) >= 21 and len(set(asset_names)) == len(asset_names)
+asset_names.append("v2_crystal_wisp.png")
+assert len(asset_names) >= 22 and len(set(asset_names)) == len(asset_names)
 for asset in asset_names:
     assert (r/"assets"/asset).is_file(), f"Missing actual in-game art: {asset}"
 for required_symbol in ["EMBER_START", "CINDER_VAULT_START", "func open_ember_brazier(", "func select_ember_rune(",

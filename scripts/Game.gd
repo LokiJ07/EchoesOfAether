@@ -221,7 +221,7 @@ func draw_realm_backdrop(region: int, region_start: float, region_end: float, le
 
 func load_ember_art() -> void:
 	var ids: Array = ["citadel", "dungeon", "cinder_warden", "fire_imp", "emberling",
-		"slime", "moth", "beetle", "sentinel", "wisp", "crystal_bug", "sky_wisp",
+		"slime", "moth", "beetle", "sentinel", "wisp", "crystal_bug", "crystal_wisp", "sky_wisp",
 		"cloud_moth", "bog_slime", "bog_wisp", "ash_knight", "ember_wisp",
 		"boss", "crystal_titan", "sky_herald", "marsh_guardian"]
 	for id in ids:
@@ -804,6 +804,7 @@ func update_enemies(dt: float) -> void:
 		var abs_distance = absf(distance)
 		var active = abs_distance < (700.0 if BOSS_TYPES.has(kind) else 370.0) and absf(player_pos.y - e["y"]) < 270.0
 		if BOSS_TYPES.has(kind):
+			e["dir"] = 1 if distance > 0.0 else -1
 			if e["hp"] < e["max_hp"] * 0.48:
 				e["phase"] = 2
 			if active and e["cooldown"] <= 0.0 and e["windup"] <= 0.0:
@@ -1900,7 +1901,10 @@ func _draw() -> void:
 			draw_label(Vector2(e["x"] - 75, e["y"] - height - 25), boss_display_name(e["type"]), 14, tint)
 		var bob: float = 0.0 if reduced_motion else sin(elapsed * (3.0 if BOSS_TYPES.has(e["type"]) else 5.0) + float(e["origin"])) * (3.0 if BOSS_TYPES.has(e["type"]) else 2.0)
 		if e["attack_anim"] > 0.0: bob -= 7.0
-		draw_texture_rect(texture, Rect2(e["x"] - width / 2.0, e["y"] - height + bob, width, height), false, tint)
+		# All new sprites are authored facing left; mirror to match real AI direction.
+		draw_set_transform(Vector2(float(e["x"]), float(e["y"]) + bob), 0.0, Vector2(-float(e["dir"]), 1.0))
+		draw_texture_rect(texture, Rect2(-width * 0.5, -height, width, height), false, tint)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if not BOSS_TYPES.has(e["type"]):
 			var species_name: String = str(e["type"]).replace("_", " ").to_upper()
 			draw_label(Vector2(e["x"] - width * 0.5, e["y"] - height - 22), species_name, 12, Color("e7f6e6"))

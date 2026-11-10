@@ -5,7 +5,7 @@
 ### Player-visible improvements
 
 - **Longer connected game:** The world expands from 15,800 to 23,000 world units. Chapter II becomes available after clearing Shadowfen. Emberfall Citadel is followed by the separate-looking Cinder Vault dungeon (Gatehouse, Furnace Hall, Cinder Throne), and a new Cinder Warden boss with a two-phase fireball attack and on-screen warning.
-- **21 ACTUAL generated art assets**, sourced from Higgsfield and imported into Godot: volcanic Citadel background, molten dungeon, Cinder Warden, Emberling pet, Fire Imp, 12 distinct ordinary mob designs, 4 distinct realm-boss designs. PNG image processing converts chroma-green sheets to transparent per-species sprites. All are packed into the APK; **no live network required**.
+- **22 ACTUAL imported art assets (21 original Higgsfield images plus 1 derived crystal variant)**, sourced from Higgsfield and imported into Godot: volcanic Citadel background, molten dungeon, Cinder Warden, Emberling pet, Fire Imp, 12 distinct ordinary mob designs, 4 distinct realm-boss designs. PNG image processing converts chroma-green sheets to transparent per-species sprites. All are packed into the APK; **no live network required**.
 - **Mob identity overhaul:** Old forest/slime/moth/beetle/sentinel/wisp, crystal/sky/marsh monsters and original bosses now load separate visual sprites rather than displaying the same image with different color tints. Enemy names are visible above sprites, while existing behaviors, health, damage and attack telegraphs remain functional.
 - **Controls that actually move:** Fixed a bug where the joystick was accidentally included in the action-button hit test, swallowing touch presses after custom HUD repositioning. The engine now converts Android event coordinates into local HUD space, resolves the nearest *visible* action, and uses the actual saved on-screen control positions. You can reposition joystick, Attack, Jump, Guard, Dash, Potion, etc.; the hit zones follow.
 - **New recognizable animated main menu:** Full-screen Higgsfield Emberfall poster art, dark cinematic split panel, gold/teal typography, smooth embers, large adventure buttons, and redesigned five-destination portal network and world atlas.
@@ -20,7 +20,7 @@ Abyssal Depths, Everdawn Gardens, a full multi-weapon inventory or a dedicated b
 
 ### Development / loop-engineering quality gates
 
-`tools/fetch_v2_art.py` processes Higgsfield originals into 21 separate `assets/v2_*.png` images; GitHub Actions embeds them and attempts to commit the processed files for future offline builds. Godot headless tests cover unique texture loading, repositioned real touchscreen hits, five-portal save migration, optional puzzle exits/rewards, companion behavior, multiple enemy hunts, boss phase 2, dungeon clear persistence, and the original v1 smoke tests. CI then builds and signs the same-package Android APK. **Physical-phone look-and-feel verification is still needed after CI succeeds.**
+`tools/fetch_v2_art.py` processes Higgsfield originals into 22 separate `assets/v2_*.png` images; GitHub Actions embeds them and attempts to commit the processed files for future offline builds. Godot headless tests cover unique texture loading, repositioned real touchscreen hits, five-portal save migration, optional puzzle exits/rewards, companion behavior, multiple enemy hunts, boss phase 2, dungeon clear persistence, and the original v1 smoke tests. CI then builds and signs the same-package Android APK. **Physical-phone look-and-feel verification is still needed after CI succeeds.**
 
 ---
 

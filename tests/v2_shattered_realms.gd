@@ -20,15 +20,15 @@ func run_tests() -> void:
 	game.start_new_game()
 	var hud = game.hud
 	if not check(game.WORLD_WIDTH >= 23000.0 and game.EMBER_START > 15000.0 and game.CINDER_VAULT_START > game.EMBER_START, "New world and dungeon exist"): return
-	if not check(game.ember_art.size() >= 20 and game.ember_art.has("citadel") and game.ember_art.has("dungeon"), "Higgsfield assets are imported, offline and load as textures"): return
-	for name in ["slime", "moth", "beetle", "sentinel", "wisp", "crystal_bug", "sky_wisp",
+	if not check(game.ember_art.size() >= 22 and game.ember_art.has("citadel") and game.ember_art.has("dungeon"), "Higgsfield assets are imported, offline and load as textures"): return
+	for name in ["slime", "moth", "beetle", "sentinel", "wisp", "crystal_bug", "crystal_wisp", "sky_wisp",
 		"cloud_moth", "bog_slime", "bog_wisp", "fire_imp", "ash_knight", "ember_wisp",
 		"boss", "crystal_titan", "sky_herald", "marsh_guardian", "cinder_warden", "emberling"]:
 		if not check(game.ember_art.has(name), "Unique enemy, guardian or pet sprite exists: " + name): return
 	if not check(game.enemies.any(func(e): return e["type"] == "fire_imp") and
 		game.enemies.any(func(e): return e["type"] == "ash_knight") and
 		game.enemies.any(func(e): return e["type"] == "cinder_warden"), "New enemies and giant boss are actual spawned actors"): return
-	print("PASS: v2 original Higgsfield art, 19 unique sprites, dungeon and new mobs")
+	print("PASS: v2 original Higgsfield art, 20 unique sprites, dungeon and new mobs")
 	# Reproduce the bug: touching the joystick itself previously got swallowed by
 	# an invalid joystick-as-action entry and the hero did not move.
 	var stick: Vector2 = hud.joystick_center()
