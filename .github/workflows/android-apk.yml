@@ -184,4 +184,5 @@ jobs:
             /tmp/godot-smoke.log
             /tmp/godot-gameplay.log
             /tmp/godot-world.log
+            /tmp/godot-v06.log
           if-no-files-found: ignore
