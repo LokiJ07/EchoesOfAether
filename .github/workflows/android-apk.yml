@@ -28,6 +28,9 @@ jobs:
 
       - name: Install Android SDK tools
         uses: android-actions/setup-android@v3
+        with:
+          # The legacy 'tools' package was removed from Android SDK repositories.
+          packages: 'platform-tools'
 
       - name: Install required Android platform packages
         shell: bash
