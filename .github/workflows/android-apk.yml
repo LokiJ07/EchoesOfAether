@@ -20,13 +20,14 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Install Android SDK tools and Java 17
-        uses: android-actions/setup-android@v3
-      - name: Java 17
+      - name: Set up Java 17 before Android SDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Install Android SDK tools
+        uses: android-actions/setup-android@v3
 
       - name: Install required Android platform packages
         shell: bash
