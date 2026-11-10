@@ -28,6 +28,11 @@ for symbol in ['func open_cache(', 'func unlock_rune(', 'func register_hunt(', '
 hud=(r/'scripts/HUD.gd').read_text()
 for symbol in ['func draw_trainer(', 'func draw_boss_health(', 'func draw_dash_button(']:
     assert symbol in hud, f"Missing Relic Hunters UI: {symbol}"
+for symbol in ["func guard(", "func trigger_guard_counter(", "combo_stage", "mastery_rewards", '"save_version": 6']:
+    assert symbol in contents, f"Missing v0.6 combat system: {symbol}"
+for symbol in ["func editor_touch_press(", "func editor_touch_drag(", "func editor_touch_release(", "func reset_control_layout(", "func save_control_layout(", "user://aether_controls.json", "func draw_hud_editor("]:
+    assert symbol in hud, f"Missing v0.6 control customization: {symbol}"
+assert (r/"tests/v06_custom_hud.gd").is_file(), "Missing v0.6 playable regression suite"
 assert 'window/handheld/orientation=4' in (r/'project.godot').read_text()
 assert 'window/stretch/aspect="expand"' in (r/'project.godot').read_text(), "Ultrawide phones must not be letterboxed"
 assert 'WORLD_WIDTH := 15800.0' in contents

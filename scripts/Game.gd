@@ -90,6 +90,13 @@ var slash_timer := 0.0
 var dash_timer := 0.0
 var dash_cooldown := 0.0
 var skill_timer := 0.0
+# v0.6 mastery combat: perfect guard, three-hit combos and lifetime hunt rewards.
+var guard_window := 0.0
+var guard_cooldown := 0.0
+var combo_stage := 0
+var combo_timer := 0.0
+var total_kills := 0
+var mastery_rewards: Array = []
 var screen_shake := 0.0
 var boss_alert := ""
 var joystick_touch := -1
@@ -220,6 +227,11 @@ func _physics_process(dt: float) -> void:
 	dash_timer = maxf(0.0, dash_timer - dt)
 	dash_cooldown = maxf(0.0, dash_cooldown - dt)
 	skill_timer = maxf(0.0, skill_timer - dt)
+	guard_window = maxf(0.0, guard_window - dt)
+	guard_cooldown = maxf(0.0, guard_cooldown - dt)
+	combo_timer = maxf(0.0, combo_timer - dt)
+	if combo_timer <= 0.0:
+		combo_stage = 0
 	portal_cooldown = maxf(0.0, portal_cooldown - dt)
 	screen_shake = maxf(0.0, screen_shake - dt)
 	if state == "playing":
@@ -357,10 +369,15 @@ func dash() -> void:
 
 func attack() -> void:
 	if state != "playing" or attack_timer > 0.0: return
-	attack_timer = maxf(0.19, 0.36 - 0.025 * float(sword_level))
+	combo_stage = (combo_stage % 3) + 1 if combo_timer > 0.0 else 1
+	combo_timer = 1.25
+	attack_timer = maxf(0.17, 0.32 - 0.021 * float(sword_level))
 	slash_timer = 0.16
 	var center = player_pos + Vector2(float(facing) * 38.0, -34.0)
-	var power = 17.0 + 8.0 * float(sword_level - 1) + float(level - 1) * 1.9
+	var power = (17.0 + 8.0 * float(sword_level - 1) + float(level - 1) * 1.9) * (1.65 if combo_stage == 3 else (1.2 if combo_stage == 2 else 1.0))
+	if combo_stage == 3:
+		add_float_text(player_pos + Vector2(0, -107), "TRIPLE STRIKE!", Color("ffe89d"))
+		spawn_dust(player_pos + Vector2(float(facing) * 24.0, -45), Color("ffd28e"), 11)
 	for e in enemies:
 		if e["hp"] <= 0.0: continue
 		if absf(e["x"] - center.x) < 75.0 and absf(e["y"] - center.y) < 87.0 and signf(e["x"] - player_pos.x) == float(facing):
@@ -379,8 +396,39 @@ func use_skill() -> void:
 func skill_cooldown_fraction() -> float:
 	return clampf(skill_timer / SKILL_COOLDOWN, 0.0, 1.0)
 
+func guard() -> void:
+	if state != "playing" or guard_cooldown > 0.0 or stamina < 18.0:
+		return
+	stamina -= 18.0
+	guard_window = 0.55
+	guard_cooldown = 2.6
+	spawn_dust(player_pos + Vector2(0, -36), Color("86c9ff"), 8)
+	play_sfx("dash")
+
+func trigger_guard_counter() -> void:
+	guard_window = 0.0
+	invincible = maxf(invincible, 0.34)
+	var nearest: Dictionary = {}
+	var nearest_distance := 120.0
+	for e in enemies:
+		if e["hp"] <= 0.0:
+			continue
+		var d: float = absf(float(e["x"]) - player_pos.x)
+		if d < nearest_distance and absf(float(e["y"]) - player_pos.y) < 145.0:
+			nearest_distance = d
+			nearest = e
+	if not nearest.is_empty():
+		hit_enemy(nearest, 23.0 + float(level) * 2.0)
+	add_float_text(player_pos + Vector2(0, -104), "PERFECT GUARD!", Color("a4f6ff"))
+	spawn_dust(player_pos + Vector2(0, -45), Color("7cddff"), 16)
+	play_sfx("skill")
+
 func damage_player(amount: float) -> void:
-	if state != "playing" or invincible > 0.0: return
+	if state != "playing": return
+	if guard_window > 0.0:
+		trigger_guard_counter()
+		return
+	if invincible > 0.0: return
 	var actual = maxf(1.0, amount - float(armor_level - 1) * 3.0)
 	hp -= actual
 	add_float_text(player_pos + Vector2(0, -80), "-%d HP" % int(actual), Color("ff9b96"))
@@ -416,6 +464,14 @@ func hit_enemy(e: Dictionary, amount: float) -> void:
 
 func enemy_died(e: Dictionary) -> void:
 	e["hp"] = 0.0
+	total_kills += 1
+	for milestone in [12, 30, 60]:
+		if total_kills >= milestone and not mastery_rewards.has(milestone):
+			mastery_rewards.append(milestone)
+			coins += milestone * 5
+			potions += 1
+			show_message("HUNTER MASTERY %d! +%d COINS, +1 POTION" % [milestone, milestone * 5], 4.5)
+			save_game()
 	var is_boss: bool = BOSS_TYPES.has(e["type"])
 	var bonus := 150 if is_boss else (30 if e["type"] == "sentinel" else 16)
 	gain_exp(bonus)
@@ -836,6 +892,12 @@ func start_new_game() -> void:
 	attack_touch.clear()
 	hold_attack = false
 	skill_timer = 0.0
+	guard_window = 0.0
+	guard_cooldown = 0.0
+	combo_stage = 0
+	combo_timer = 0.0
+	total_kills = 0
+	mastery_rewards.clear()
 	dash_cooldown = 0.0
 	dash_timer = 0.0
 	attack_timer = 0.0
@@ -913,7 +975,8 @@ func save_game() -> void:
 		"hunt_moths": hunted_moths, "hunt_sentinels": hunted_sentinels,
 		"claimed_hunts": claimed_hunts,
 		"portal_unlocked": portal_unlocked, "world_bosses_cleared": world_bosses_cleared,
-		"expansion_completed": expansion_completed, "save_version": 3}
+		"expansion_completed": expansion_completed, "save_version": 6,
+		"total_kills": total_kills, "mastery_rewards": mastery_rewards}
 	var file = FileAccess.open("user://aether_save.json", FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(values))
@@ -967,6 +1030,14 @@ func load_game() -> bool:
 	if world_bosses_cleared[1]:
 		portal_unlocked[3] = true
 	expansion_completed = bool(data.get("expansion_completed", false)) or bool(world_bosses_cleared[2])
+	total_kills = maxi(0, int(data.get("total_kills", 0)))
+	mastery_rewards = data.get("mastery_rewards", [])
+	if not mastery_rewards is Array:
+		mastery_rewards = []
+	guard_window = 0.0
+	guard_cooldown = 0.0
+	combo_stage = 0
+	combo_timer = 0.0
 	jump_count = 0
 	floating_text.clear()
 	checkpoint_x = float(data.get("checkpoint", 145))
@@ -985,12 +1056,17 @@ func _input(event: InputEvent) -> void:
 				state = "pause"
 				save_game()
 			elif state == "settings": state = hud.settings_return
+			elif state == "hud_edit":
+				hud.editor_touch_release(hud.editor_touch)
+				hud.save_control_layout()
+				state = "settings"
 			elif state in ["pause", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "realm_victory"]: state = "playing"
 		elif state == "playing":
 			match key:
 				KEY_SPACE, KEY_W, KEY_UP: jump()
 				KEY_SHIFT: dash()
 				KEY_K, KEY_L: use_skill()
+				KEY_G: guard()
 				KEY_J: attack()
 				KEY_E: interact()
 				KEY_H: heal()
@@ -1000,24 +1076,41 @@ func _input(event: InputEvent) -> void:
 			if state == "main": start_new_game()
 			elif state in ["defeat", "victory"]: respawn()
 	if event is InputEventScreenTouch:
+		if state == "hud_edit":
+			if event.pressed: hud.editor_touch_press(event.position, event.index)
+			else: hud.editor_touch_release(event.index)
+			return
 		if event.pressed:
 			touch_press(event.position, event.index)
 		else:
 			touch_release(event.index)
 	elif event is InputEventScreenDrag:
+		if state == "hud_edit":
+			hud.editor_touch_drag(event.position, event.index)
+			return
 		if event.index == joystick_touch:
 			touch_axis = joystick_axis_from_position(event.position)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if state == "hud_edit":
+			if event.pressed: hud.editor_touch_press(event.position, 999)
+			else: hud.editor_touch_release(999)
+			return
 		if event.pressed: touch_press(event.position, 999)
 		else: touch_release(999)
-	elif event is InputEventMouseMotion and joystick_touch == 999:
-		touch_axis = joystick_axis_from_position(event.position)
+	elif event is InputEventMouseMotion:
+		if state == "hud_edit":
+			hud.editor_touch_drag(event.position, 999)
+		elif joystick_touch == 999:
+			touch_axis = joystick_axis_from_position(event.position)
 
 func joystick_axis_from_position(pos: Vector2) -> float:
-	var axis := clampf((pos.x - joystick_base.x) / 78.0, -1.0, 1.0)
+	var axis := clampf((pos.x - joystick_base.x) / (78.0 * hud.control_scale), -1.0, 1.0)
 	return 0.0 if absf(axis) < 0.12 else axis
 
 func touch_press(pos: Vector2, id: int) -> void:
+	if state == "hud_edit":
+		hud.editor_touch_press(pos, id)
+		return
 	if state != "playing" or dialogue != "":
 		if hud.handle_menu_press(pos): return
 		if dialogue != "": dialogue = ""
@@ -1026,7 +1119,7 @@ func touch_press(pos: Vector2, id: int) -> void:
 	var controls = hud.control_centers()
 	for key in controls:
 		var center: Vector2 = controls[key]
-		var hit_radius := 58.0 if key == "attack" else (51.0 if key in ["jump", "skill"] else 46.0)
+		var hit_radius: float = (58.0 if key == "attack" else (51.0 if key in ["jump", "skill", "guard"] else 46.0)) * hud.control_scale
 		if center.distance_to(pos) < hit_radius:
 			match key:
 				"attack":
@@ -1036,16 +1129,20 @@ func touch_press(pos: Vector2, id: int) -> void:
 				"jump": jump()
 				"dash": dash()
 				"skill": use_skill()
+				"guard": guard()
 				"potion": heal()
 				"interact": interact()
 			return
-	if pos.x < minf(405.0, hud.size.x * 0.36) and pos.y > hud.size.y * 0.45 and joystick_touch < 0:
+	if pos.distance_to(hud.joystick_center()) < 111.0 * hud.control_scale and joystick_touch < 0:
 		joystick_touch = id
 		# Always anchor on the visual thumbstick for predictable directional input.
 		joystick_base = hud.joystick_center()
 		touch_axis = joystick_axis_from_position(pos)
 
 func touch_release(id: int) -> void:
+	if state == "hud_edit":
+		hud.editor_touch_release(id)
+		return
 	if id == joystick_touch:
 		joystick_touch = -1
 		touch_axis = 0.0

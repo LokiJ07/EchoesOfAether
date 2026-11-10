@@ -7,20 +7,133 @@ var menu_buttons: Array = []
 var top_buttons: Array = []
 var main_accent := Color("75e7d4")
 var settings_return := "pause"
+# v0.6: coordinates are normalized, so layouts work across 16:9 and ultrawide phones.
+const CONTROL_KEYS = ["joystick", "attack", "jump", "dash", "skill", "potion", "interact", "guard"]
+const CONTROLS_FILE = "user://aether_controls.json"
+var custom_positions: Dictionary = {}
+var control_scale := 1.0
+var control_opacity := 0.88
+var editor_key := ""
+var editor_touch := -1
 
 func _ready() -> void:
 	font = ThemeDB.fallback_font
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	load_control_layout()
+
+func default_control_centers() -> Dictionary:
+	var w: float = size.x
+	var h: float = size.y
+	return {"joystick": Vector2(145.0, h - 120.0), "attack": Vector2(w - 129.0, h - 122.0),
+		"jump": Vector2(w - 278.0, h - 80.0), "dash": Vector2(w - 315.0, h - 205.0),
+		"skill": Vector2(w - 187.0, h - 281.0), "potion": Vector2(w - 433.0, h - 77.0),
+		"interact": Vector2(w - 437.0, h - 187.0), "guard": Vector2(w - 360.0, h - 310.0)}
+
+func control_position(key: String) -> Vector2:
+	var defaults: Dictionary = default_control_centers()
+	if not defaults.has(key):
+		return Vector2.ZERO
+	if custom_positions.has(key):
+		var coords: Array = custom_positions[key]
+		return Vector2(float(coords[0]) * size.x, float(coords[1]) * size.y)
+	return defaults[key]
 
 func joystick_center() -> Vector2:
-	return Vector2(145.0, size.y - 120.0)
+	return control_position("joystick")
 
 func control_centers() -> Dictionary:
-	var w = size.x
-	var h = size.y
-	return {"attack": Vector2(w - 129, h - 122), "jump": Vector2(w - 278, h - 80),
-		"dash": Vector2(w - 315, h - 205), "skill": Vector2(w - 187, h - 281),
-		"potion": Vector2(w - 433, h - 77), "interact": Vector2(w - 437, h - 187)}
+	var result: Dictionary = default_control_centers()
+	for key in result:
+		if custom_positions.has(key):
+			result[key] = control_position(str(key))
+	return result
+
+func set_control_position(key: String, at: Vector2) -> void:
+	if not CONTROL_KEYS.has(key) or size.x <= 0.0 or size.y <= 0.0:
+		return
+	var safe_margin: float = 64.0 * control_scale
+	var target: Vector2 = Vector2(clampf(at.x, safe_margin, maxf(safe_margin, size.x - safe_margin)),
+		clampf(at.y, 132.0 + 20.0 * control_scale, maxf(132.0, size.y - safe_margin)))
+	custom_positions[key] = [target.x / size.x, target.y / size.y]
+	queue_redraw()
+
+func save_control_layout() -> void:
+	var file := FileAccess.open(CONTROLS_FILE, FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify({"positions": custom_positions, "scale": control_scale,
+			"opacity": control_opacity, "version": 1}))
+		file.close()
+
+func load_control_layout() -> void:
+	if not FileAccess.file_exists(CONTROLS_FILE):
+		return
+	var file := FileAccess.open(CONTROLS_FILE, FileAccess.READ)
+	if file == null:
+		return
+	var data = JSON.parse_string(file.get_as_text())
+	file.close()
+	if not data is Dictionary:
+		return
+	control_scale = clampf(float(data.get("scale", 1.0)), 0.75, 1.35)
+	control_opacity = clampf(float(data.get("opacity", 0.88)), 0.35, 1.0)
+	var incoming = data.get("positions", {})
+	if not incoming is Dictionary:
+		return
+	custom_positions.clear()
+	for key in CONTROL_KEYS:
+		var coords = incoming.get(key, [])
+		if coords is Array and coords.size() == 2:
+			custom_positions[key] = [clampf(float(coords[0]), 0.03, 0.97),
+				clampf(float(coords[1]), 0.23, 0.95)]
+
+func reset_control_layout() -> void:
+	custom_positions.clear()
+	control_scale = 1.0
+	control_opacity = 0.88
+	save_control_layout()
+	queue_redraw()
+
+func editor_touch_press(at: Vector2, touch_id: int) -> bool:
+	if game.state != "hud_edit":
+		return false
+	if handle_menu_press(at):
+		return true
+	var closest := 115.0 * control_scale
+	var selected := ""
+	for key in CONTROL_KEYS:
+		var distance: float = control_position(key).distance_to(at)
+		if distance < closest:
+			closest = distance
+			selected = key
+	if selected != "":
+		editor_key = selected
+		editor_touch = touch_id
+		queue_redraw()
+	return true
+
+func editor_touch_drag(at: Vector2, touch_id: int) -> void:
+	if game.state != "hud_edit" or touch_id != editor_touch or editor_key == "":
+		return
+	set_control_position(editor_key, at)
+
+func editor_touch_release(touch_id: int) -> void:
+	if touch_id != editor_touch:
+		return
+	editor_touch = -1
+	editor_key = ""
+	save_control_layout()
+
+func change_control_scale(amount: float) -> void:
+	control_scale = clampf(snappedf(control_scale + amount, 0.05), 0.75, 1.35)
+	save_control_layout()
+
+func change_control_opacity(amount: float) -> void:
+	control_opacity = clampf(snappedf(control_opacity + amount, 0.1), 0.35, 1.0)
+	save_control_layout()
+
+func faded(color: Color) -> Color:
+	color.a *= control_opacity
+	return color
 
 func handle_top_press(pos: Vector2) -> bool:
 	for entry in top_buttons:
@@ -78,6 +191,22 @@ func handle_menu_press(pos: Vector2) -> bool:
 				game.music.stream_paused = not game.music_on
 			"back_settings":
 				game.state = settings_return
+			"customize":
+				game.state = "hud_edit"
+				game.touch_axis = 0.0
+				game.joystick_touch = -1
+				game.attack_touch.clear()
+				game.hold_attack = false
+			"hud_smaller": change_control_scale(-0.1)
+			"hud_larger": change_control_scale(0.1)
+			"hud_fade": change_control_opacity(-0.1)
+			"hud_bright": change_control_opacity(0.1)
+			"hud_reset": reset_control_layout()
+			"hud_done":
+				editor_key = ""
+				editor_touch = -1
+				save_control_layout()
+				game.state = "settings"
 			"heal": game.heal()
 		game.queue_redraw()
 		queue_redraw()
@@ -114,24 +243,38 @@ func menu_button(rect: Rect2, label: String, code: String, accent: Color = Color
 	menu_buttons.append({"rect": rect, "key": code})
 
 func control_button(at: Vector2, radius: float, letter: String, label: String, tint: Color) -> void:
-	draw_circle(at + Vector2(3, 5), radius + 2, Color(0, 0, 0, 0.31))
-	draw_circle(at, radius, Color("183044") if game.dash_timer <= 0.0 else Color("295c66"))
-	draw_arc(at, radius - 2, 0, TAU, 36, tint, 3.0, true)
+	radius *= control_scale
+	draw_circle(at + Vector2(3, 5), radius + 2, faded(Color(0, 0, 0, 0.31)))
+	draw_circle(at, radius, faded(Color("183044") if game.dash_timer <= 0.0 else Color("295c66")))
+	draw_arc(at, radius - 2, 0, TAU, 36, faded(tint), 3.0, true)
 	centered(at.x, at.y + 8, letter, 27, Color("f2ffef"))
 	centered(at.x, at.y + radius + 16, label, 12, tint)
 
 func draw_dash_button(at: Vector2) -> void:
 	var tint := Color("84d9f0")
-	var radius := 42.0
-	draw_circle(at + Vector2(3, 5), radius + 2.0, Color(0, 0, 0, 0.31))
-	draw_circle(at, radius, Color("162c39"))
-	draw_arc(at, radius - 2.0, 0.0, TAU, 36, tint, 2.0, true)
+	var radius: float = 42.0 * control_scale
+	draw_circle(at + Vector2(3, 5), radius + 2.0, faded(Color(0, 0, 0, 0.31)))
+	draw_circle(at, radius, faded(Color("162c39")))
+	draw_arc(at, radius - 2.0, 0.0, TAU, 36, faded(tint), 2.0, true)
 	if game.dash_cooldown > 0.0:
 		draw_arc(at, radius - 3, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - game.dash_cooldown / 0.7), 40, tint, 4.0, true)
 		centered(at.x, at.y + 7.0, "%.1fs" % game.dash_cooldown, 18, tint)
 	else:
 		centered(at.x, at.y + 8.0, ">>", 25, tint)
 	centered(at.x, at.y + radius + 16, "DASH", 12, tint)
+
+func draw_guard_button(at: Vector2) -> void:
+	var radius: float = 37.0 * control_scale
+	var tint := Color("c2d5fb")
+	var active: bool = game.guard_window > 0.0
+	draw_circle(at + Vector2(3, 5), radius + 2.0, faded(Color(0, 0, 0, 0.31)))
+	draw_circle(at, radius, faded(Color("466980") if active else Color("162c39")))
+	draw_arc(at, radius - 2.0, 0.0, TAU, 36, faded(tint), 2.0, true)
+	if game.guard_cooldown > 0.0 and not active:
+		centered(at.x, at.y + 7.0, "%.1f" % game.guard_cooldown, 19, tint)
+	else:
+		centered(at.x, at.y + 8.0, "G", 24, tint)
+	centered(at.x, at.y + radius + 16.0, "GUARD", 12, tint)
 
 func skill_status_text() -> String:
 	if game.skill_timer > 0.0:
@@ -141,13 +284,13 @@ func skill_status_text() -> String:
 	return "READY"
 
 func draw_skill_button(at: Vector2) -> void:
-	var radius := 45.0
+	var radius: float = 45.0 * control_scale
 	var tint := Color("c6a2f5")
 	var recharging: bool = game.skill_timer > 0.0
 	var low_stamina: bool = game.stamina < 35.0
-	draw_circle(at + Vector2(3, 5), radius + 2.0, Color(0, 0, 0, 0.31))
-	draw_circle(at, radius, Color("152333") if recharging or low_stamina else Color("284258"))
-	draw_arc(at, radius - 2.0, 0.0, TAU, 48, Color("677586") if recharging else tint, 2.0, true)
+	draw_circle(at + Vector2(3, 5), radius + 2.0, faded(Color(0, 0, 0, 0.31)))
+	draw_circle(at, radius, faded(Color("152333") if recharging or low_stamina else Color("284258")))
+	draw_arc(at, radius - 2.0, 0.0, TAU, 48, faded(Color("677586") if recharging else tint), 2.0, true)
 	if recharging:
 		var ready_fraction: float = 1.0 - game.skill_cooldown_fraction()
 		draw_arc(at, radius - 3.0, -PI * 0.5, -PI * 0.5 + TAU * ready_fraction, 48, tint, 4.0, true)
@@ -166,10 +309,16 @@ func _draw() -> void:
 	if game.state == "main":
 		draw_main_menu(w, h)
 		return
-	if game.state in ["playing", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "pause", "settings", "victory", "realm_victory", "defeat"]:
+	if game.state in ["playing", "hud_edit", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "pause", "settings", "victory", "realm_victory", "defeat"]:
 		draw_game_status(w, h)
+	if game.state == "hud_edit":
+		draw_mobile_controls(w, h)
+		draw_hud_editor(w, h)
+		return
 	if game.state == "playing":
 		draw_boss_health(w)
+		if game.combo_stage > 0 and game.combo_timer > 0.0:
+			centered(w - 250.0, h - 356.0, "SWORD COMBO  %d / 3" % game.combo_stage, 18, Color("ffe6ab"))
 		if game.dialogue != "":
 			draw_dialogue(w, h)
 		else:
@@ -230,11 +379,12 @@ func draw_game_status(w: float, h: float) -> void:
 		top_buttons.append({"rect": r, "key": key})
 
 func draw_mobile_controls(w: float, h: float) -> void:
-	var joy = joystick_center()
-	draw_circle(joy, 99, Color(0.02, 0.12, 0.18, 0.42))
-	draw_arc(joy, 96, 0, TAU, 52, Color("a0dccd"), 3.0, true)
-	draw_circle(joy + Vector2(game.touch_axis * 55.0, 0), 46, Color("31616f"))
-	centered(joy.x, joy.y - 107, "MOVE", 16, Color("b3e8dc"))
+	var joy: Vector2 = joystick_center()
+	var radius: float = 99.0 * control_scale
+	draw_circle(joy, radius, faded(Color(0.02, 0.12, 0.18, 0.42)))
+	draw_arc(joy, radius - 3.0, 0, TAU, 52, faded(Color("a0dccd")), 3.0, true)
+	draw_circle(joy + Vector2(game.touch_axis * 55.0 * control_scale, 0), 46.0 * control_scale, faded(Color("31616f")))
+	centered(joy.x, joy.y - radius - 9.0, "MOVE", 16, Color("b3e8dc"))
 	text(joy + Vector2(-66, 10), "<", 28, Color("e2f5f3"))
 	text(joy + Vector2(51, 10), ">", 28, Color("e2f5f3"))
 	var c = control_centers()
@@ -242,8 +392,9 @@ func draw_mobile_controls(w: float, h: float) -> void:
 	control_button(c["jump"], 45, "^", "JUMP", Color("b4e4c2"))
 	draw_dash_button(c["dash"])
 	draw_skill_button(c["skill"])
+	draw_guard_button(c["guard"])
 	control_button(c["potion"], 37, "+", "POTION %d" % game.potions, Color("f5a2a2"))
-	if game.nearby_npc() != "":
+	if game.nearby_npc() != "" or game.state == "hud_edit":
 		var label := "OPEN" if game.nearby_npc() == "cache" else ("TRAIN" if game.nearby_npc() == "scout" else ("SHOP" if game.nearby_npc() == "merchant" else "TALK"))
 		control_button(c["interact"], 40, "!", label, Color("f3db98"))
 
@@ -385,10 +536,32 @@ func draw_pause(w: float, h: float) -> void:
 	menu_button(Rect2(w / 2.0 - 177, r.position.y + 309, 354, 57), "SAVE & MAIN MENU", "main", Color("edb4a6"))
 
 func draw_settings(w: float, h: float) -> void:
-	var r = modal(w, h, "AETHER SETTINGS", 550, 399)
-	menu_button(Rect2(w / 2.0 - 190, r.position.y + 108, 380, 52), "MUSIC: %s" % ("ON" if game.music_on else "OFF"), "music")
-	menu_button(Rect2(w / 2.0 - 190, r.position.y + 177, 380, 52), "SOUND: %s" % ("ON" if game.sound_on else "OFF"), "sound")
-	menu_button(Rect2(w / 2.0 - 190, r.position.y + 260, 380, 52), "BACK", "back_settings")
+	var r = modal(w, h, "AETHER SETTINGS", 550, 470)
+	menu_button(Rect2(w / 2.0 - 190, r.position.y + 101, 380, 51), "MUSIC: %s" % ("ON" if game.music_on else "OFF"), "music")
+	menu_button(Rect2(w / 2.0 - 190, r.position.y + 166, 380, 51), "SOUND: %s" % ("ON" if game.sound_on else "OFF"), "sound")
+	menu_button(Rect2(w / 2.0 - 190, r.position.y + 231, 380, 57), "CUSTOMIZE HUD & CONTROLS", "customize", Color("a4d5ff"))
+	menu_button(Rect2(w / 2.0 - 190, r.position.y + 317, 380, 51), "BACK", "back_settings")
+
+func draw_hud_editor(w: float, h: float) -> void:
+	# Editor displays actual mobile controls over the world; drag a control to relocate it.
+	var toolbar := Rect2(w * 0.5 - 525.0, 103.0, 1050.0, 118.0)
+	box(toolbar, Color(0.04, 0.09, 0.17, 0.92), Color("8bb4ca"), 2.0)
+	centered(w * 0.5, 127.0, "DRAG ANY CONTROL TO MOVE IT", 18, Color("f0eacb"))
+	var actions = [
+		{"name": "SMALLER", "key": "hud_smaller"},
+		{"name": "LARGER", "key": "hud_larger"},
+		{"name": "FADE", "key": "hud_fade"},
+		{"name": "BRIGHT", "key": "hud_bright"},
+		{"name": "RESET", "key": "hud_reset"},
+		{"name": "SAVE & EXIT", "key": "hud_done"}
+	]
+	for i in range(actions.size()):
+		var x: float = toolbar.position.x + 16.0 + float(i) * 173.0
+		menu_button(Rect2(x, 147.0, 164.0, 54.0), actions[i]["name"], actions[i]["key"],
+			Color("f0b7aa") if i == 4 else Color("91d8cd"))
+	centered(w * 0.5, h - 20.0, "SIZE %d%%     OPACITY %d%%    |    Positions saved automatically" % [int(control_scale * 100.0), int(control_opacity * 100.0)], 15, Color("e8dfbc"))
+	if editor_key != "":
+		draw_arc(control_position(editor_key), 74.0 * control_scale, 0, TAU, 52, Color("ffe4a0"), 4.0, true)
 
 func draw_defeat(w: float, h: float) -> void:
 	var r = modal(w, h, "YOUR LIGHT HAS FADED", 580, 360)

@@ -1,3 +1,17 @@
+# Echoes of Aether v0.6 — CONTROL FORGE & GUARDIAN MASTERY
+
+**A major, playable upgrade** over the v0.3 Worlds Beyond expansion. The four-realm story, portal network, old quests, enemies, relics and map remain unchanged. Existing Android app installs and save files remain compatible.
+
+## New in v0.6
+
+**Fully customizable on-phone HUD editor:** Go to **PAUSE → SETTINGS → CUSTOMIZE HUD & CONTROLS**. Drag the joystick or any action button (ATTACK, JUMP, DASH, AETHER, POTION, TALK/TRAVEL, GUARD) to a comfortable place. The editor allows **SMALLER / LARGER** (75–135%) and **FADE / BRIGHT** (35–100% background transparency) adjustments, and includes **RESET** and **SAVE & EXIT**. Positions are stored as normalized screen coordinates so they work on wide Android phone displays. All moved controls also use the **moved hitboxes in the actual game**. Layout preferences are saved separately in `user://aether_controls.json`, so choosing a new adventure cannot erase your control layout.
+
+**Mastery combat:** A new **GUARD** button (or G on keyboard) spends 18 stamina for a 0.55-second defensive window. If an enemy hits you within the window, the hit is blocked and the nearest enemy is counterattacked. Guard has a 2.6-second cooldown and a visible countdown. **Three consecutive ATTACK taps** within the combo window create a heavier third strike, with combat feedback in the HUD. The **Hunter Mastery** lifetime kill tracker pays one-time bonuses at 12, 30 and 60 enemies defeated. Your kill count and claimed rewards persist between sessions; they do not repeat on respawn.
+
+**Safe updating:** Android CI automatically generates a higher versionCode, preserves the original package ID and signing certificate, compiles and tests Godot scenes, verifies v0.1/v0.2/v0.3 save migration, tests the real draggable touchscreen layout and guard/combos/mastery, and exports a signed update APK. Download the latest successful Actions artifact and **install over the current game** without uninstalling it.
+
+---
+
 # Echoes of Aether v0.3 — WORLDS BEYOND
 
 **Android fullscreen and playable world expansion**. Built as an upgrade for the existing game; keep the original APK installed and choose **Update** when installing the v0.3 Android APK. The same Android package ID and debug signing certificate remain in GitHub Actions.

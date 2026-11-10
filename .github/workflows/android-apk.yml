@@ -75,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_VERSION_CODE=$((GITHUB_RUN_NUMBER + 1))
-          BUILD_VERSION_NAME="0.3.${GITHUB_RUN_NUMBER}"
+          BUILD_VERSION_NAME="0.6.${GITHUB_RUN_NUMBER}"
           export BUILD_VERSION_CODE BUILD_VERSION_NAME
           python3 - <<'PY'
           import os
@@ -126,6 +126,14 @@ jobs:
           /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/world_expansion.gd 2>&1 | tee /tmp/godot-world.log
           grep -Fq 'PASS: ultrawide fullscreen, responsive mobile movement, portals, three realms, bosses, hazards and save/load' /tmp/godot-world.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|WORLD EXPANSION FAILED)' /tmp/godot-world.log; then exit 1; fi
+
+      - name: Validate v0.6 HUD editor, combat and save upgrades
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v06_custom_hud.gd 2>&1 | tee /tmp/godot-v06.log
+          grep -Fq 'PASS: v0.6 HUD drag, scale, transparency, reset, persistence, guard, combo, mastery, legacy saves' /tmp/godot-v06.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V0.6 FAILED)' /tmp/godot-v06.log; then exit 1; fi
 
       - name: Export signed debug APK
         shell: bash
