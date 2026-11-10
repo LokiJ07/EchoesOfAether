@@ -262,7 +262,7 @@ func update_player(dt: float) -> void:
 		velocity.x = float(facing) * 760.0
 	else:
 		var target_speed := axis * (335.0 if absf(axis) > 0.85 else 285.0)
-		velocity.x = move_toward(velocity.x, target_speed, (1850.0 if absf(axis) > 0.08 else 2100.0) * dt)
+		velocity.x = move_toward(velocity.x, target_speed, (2600.0 if absf(axis) > 0.08 else 2400.0) * dt)
 	velocity.y = minf(900.0, velocity.y + GRAVITY * dt)
 	var old_foot := player_pos.y
 	player_pos += velocity * dt

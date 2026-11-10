@@ -23,7 +23,7 @@ workflow=(r/'.github/workflows/android-apk.yml').read_text()
 for required in ['--export-debug Android', 'actions/upload-artifact@v4', 'GODOT_VERSION: "4.5.2"', 'editor_settings-4.5.tres']:
     assert required in workflow, f"Missing CI integration: {required}"
 assert 'GITHUB_RUN_NUMBER' in workflow and 'APKSIGNER' in workflow, "Missing Android update metadata/signature checks"
-for symbol in ['func open_cache(', 'func unlock_rune(', 'func register_hunt(', 'func nearby_cache_index(', 'func update_floating_text(', 'save_version": 2']:
+for symbol in ['func open_cache(', 'func unlock_rune(', 'func register_hunt(', 'func nearby_cache_index(', 'func update_floating_text(', 'save_version": 3']:
     assert symbol in contents, f"Missing Relic Hunters gameplay: {symbol}"
 hud=(r/'scripts/HUD.gd').read_text()
 for symbol in ['func draw_trainer(', 'func draw_boss_health(', 'func draw_dash_button(']:
