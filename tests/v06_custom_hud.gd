@@ -114,5 +114,17 @@ func run_tests() -> void:
 	legacy.store_string(JSON.stringify(old))
 	legacy.close()
 	if not check(game.load_game() and game.level == 3 and game.quest_stage == 2 and game.total_kills == 0 and game.mastery_rewards.is_empty(), "v0.3 saves migrate with safe v0.6 defaults"): return
+	# Responsive layout is computed from the current viewport, not a fixed 16:9 image.
+	for simulated_view in [Vector2(960, 540), Vector2(1152, 648), Vector2(1440, 648),
+		Vector2(1152, 864), Vector2(1920, 648)]:
+		var safe: Rect2 = hud.safe_layout_rect(simulated_view)
+		var controls: Dictionary = hud.default_control_centers_for(simulated_view)
+		var factor: float = hud.screen_scale_for(simulated_view)
+		if not check(factor >= 0.72 and factor <= 1.18, "Screen scale stays within reasonable touch size"): return
+		for key in hud.CONTROL_KEYS:
+			if not check(safe.has_point(controls[key]), "Control %s stays within safe margins on %s" % [key, str(simulated_view)]): return
+		if not check(controls["joystick"].x < controls["potion"].x and controls["jump"].x < controls["attack"].x, "No left/right cluster inversion on %s" % str(simulated_view)): return
+		if not check(controls["attack"].distance_to(controls["jump"]) > 95.0 * factor, "Attack and jump retain separate tap regions on %s" % str(simulated_view)): return
+	print("PASS: adaptive HUD stays in bounds on compact, 16:9, 20:9, 4:3 and ultrawide displays")
 	print("PASS: v0.6 HUD drag, scale, transparency, reset, persistence, guard, combo, mastery, legacy saves")
 	quit(0)

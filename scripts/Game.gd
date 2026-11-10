@@ -1031,9 +1031,15 @@ func load_game() -> bool:
 		portal_unlocked[3] = true
 	expansion_completed = bool(data.get("expansion_completed", false)) or bool(world_bosses_cleared[2])
 	total_kills = maxi(0, int(data.get("total_kills", 0)))
-	mastery_rewards = data.get("mastery_rewards", [])
-	if not mastery_rewards is Array:
-		mastery_rewards = []
+	# JSON numeric arrays can contain floats; normalize milestone IDs to integers
+	# before using Array.has(), so the reward never repeats after reopening the app.
+	mastery_rewards.clear()
+	var saved_rewards = data.get("mastery_rewards", [])
+	if saved_rewards is Array:
+		for item in saved_rewards:
+			var milestone: int = int(item)
+			if milestone in [12, 30, 60] and not mastery_rewards.has(milestone):
+				mastery_rewards.append(milestone)
 	guard_window = 0.0
 	guard_cooldown = 0.0
 	combo_stage = 0
@@ -1104,7 +1110,7 @@ func _input(event: InputEvent) -> void:
 			touch_axis = joystick_axis_from_position(event.position)
 
 func joystick_axis_from_position(pos: Vector2) -> float:
-	var axis := clampf((pos.x - joystick_base.x) / (78.0 * hud.control_scale), -1.0, 1.0)
+	var axis := clampf((pos.x - joystick_base.x) / (78.0 * hud.active_control_scale()), -1.0, 1.0)
 	return 0.0 if absf(axis) < 0.12 else axis
 
 func touch_press(pos: Vector2, id: int) -> void:
@@ -1119,7 +1125,7 @@ func touch_press(pos: Vector2, id: int) -> void:
 	var controls = hud.control_centers()
 	for key in controls:
 		var center: Vector2 = controls[key]
-		var hit_radius: float = (58.0 if key == "attack" else (51.0 if key in ["jump", "skill", "guard"] else 46.0)) * hud.control_scale
+		var hit_radius: float = (58.0 if key == "attack" else (51.0 if key in ["jump", "skill", "guard"] else 46.0)) * hud.active_control_scale()
 		if center.distance_to(pos) < hit_radius:
 			match key:
 				"attack":
@@ -1133,7 +1139,7 @@ func touch_press(pos: Vector2, id: int) -> void:
 				"potion": heal()
 				"interact": interact()
 			return
-	if pos.distance_to(hud.joystick_center()) < 111.0 * hud.control_scale and joystick_touch < 0:
+	if pos.distance_to(hud.joystick_center()) < 111.0 * hud.active_control_scale() and joystick_touch < 0:
 		joystick_touch = id
 		# Always anchor on the visual thumbstick for predictable directional input.
 		joystick_base = hud.joystick_center()
@@ -1218,7 +1224,9 @@ func _draw() -> void:
 		var tx = float(tile) * 48.0
 		if ground_y(tx + 22.0) < 0.0: continue
 		var earth: Color = Color("243a35") if tx < 4750 else (Color("27283b") if tx < 8400 else (Color("133949") if tx < 10800 else (Color("29445b") if tx < 12900 else Color("203b32"))))
-		draw_rect(Rect2(tx, FLOOR_Y + 10, 49, 190), earth)
+		# Fill the complete visible ground on taller 4:3 tablets as well as wide phones.
+		var view_bottom: float = camera.position.y + get_viewport_rect().size.y * 0.5 / maxf(0.1, camera.zoom.y) + 90.0
+		draw_rect(Rect2(tx, FLOOR_Y + 10, 49, maxf(190.0, view_bottom - FLOOR_Y)), earth)
 		var ground_tex: Texture2D = GRASS if tx < 4750 or tx >= 12900 else ROCK
 		var ground_tint: Color = Color("bdefff") if tx >= 8400 and tx < 10800 else (Color("b0d8ee") if tx >= 10800 and tx < 12900 else Color.WHITE)
 		draw_texture_rect(ground_tex, Rect2(tx, FLOOR_Y - 1, 49, 46), false, ground_tint)

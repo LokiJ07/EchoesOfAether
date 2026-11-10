@@ -2,6 +2,12 @@
 
 **A major, playable upgrade** over the v0.3 Worlds Beyond expansion. The four-realm story, portal network, old quests, enemies, relics and map remain unchanged. Existing Android app installs and save files remain compatible.
 
+### Automatic screen-ratio support
+
+The game now uses Godot's **expand** aspect ratio (no forced 16:9 bars), keeping the native landscape aspect of wide, ultrawide, conventional 16:9, and tablet screens. Terrain fills the complete camera view on taller screens. HUD positions use a compact safe-area margin, adaptive button and joystick sizes, and top-bar spacing that adjusts to viewport width. The portable HUD editor saves positions in normalized coordinates and clamps them inside the current viewport when the phone's shape changes. Android export enables small/normal/large/xlarge screen support.
+
+The v0.6 regression tests check layout boundaries for simulated **960×540, 1152×648, 1440×648, 1152×864, and 1920×648** viewports, in addition to touchscreen drag/save behavior. These automated checks do not replace physical testing on individual notched devices.
+
 ## New in v0.6
 
 **Fully customizable on-phone HUD editor:** Go to **PAUSE → SETTINGS → CUSTOMIZE HUD & CONTROLS**. Drag the joystick or any action button (ATTACK, JUMP, DASH, AETHER, POTION, TALK/TRAVEL, GUARD) to a comfortable place. The editor allows **SMALLER / LARGER** (75–135%) and **FADE / BRIGHT** (35–100% background transparency) adjustments, and includes **RESET** and **SAVE & EXIT**. Positions are stored as normalized screen coordinates so they work on wide Android phone displays. All moved controls also use the **moved hitboxes in the actual game**. Layout preferences are saved separately in `user://aether_controls.json`, so choosing a new adventure cannot erase your control layout.

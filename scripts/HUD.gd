@@ -21,13 +21,45 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	load_control_layout()
 
+# Adapt coordinates to the real phone aspect ratio; the Godot "expand" viewport
+# makes screen size variable (16:9, 19.5:9, 20:9, tablets, cutout-safe margins).
+func safe_layout_rect(view: Vector2) -> Rect2:
+	var margin_x: float = clampf(view.x * 0.034, 18.0, 64.0)
+	var margin_y: float = clampf(view.y * 0.026, 10.0, 24.0)
+	return Rect2(Vector2(margin_x, margin_y),
+		Vector2(maxf(1.0, view.x - margin_x * 2.0), maxf(1.0, view.y - margin_y * 2.0)))
+
+func screen_scale_for(view: Vector2) -> float:
+	return clampf(minf(view.x / 1152.0, view.y / 648.0), 0.72, 1.18)
+
+func active_control_scale() -> float:
+	return control_scale * screen_scale_for(size)
+
+func default_control_centers_for(view: Vector2) -> Dictionary:
+	var bounds: Rect2 = safe_layout_rect(view)
+	var right: float = bounds.end.x
+	var bottom: float = bounds.end.y
+	var factor: float = screen_scale_for(view)
+	return {"joystick": Vector2(bounds.position.x + 121.0 * factor, bottom - 122.0 * factor),
+		"attack": Vector2(right - 126.0 * factor, bottom - 122.0 * factor),
+		"jump": Vector2(right - 278.0 * factor, bottom - 80.0 * factor),
+		"dash": Vector2(right - 315.0 * factor, bottom - 205.0 * factor),
+		"skill": Vector2(right - 187.0 * factor, bottom - 281.0 * factor),
+		"potion": Vector2(right - 433.0 * factor, bottom - 77.0 * factor),
+		"interact": Vector2(right - 437.0 * factor, bottom - 187.0 * factor),
+		"guard": Vector2(right - 360.0 * factor, bottom - 310.0 * factor)}
+
 func default_control_centers() -> Dictionary:
-	var w: float = size.x
-	var h: float = size.y
-	return {"joystick": Vector2(145.0, h - 120.0), "attack": Vector2(w - 129.0, h - 122.0),
-		"jump": Vector2(w - 278.0, h - 80.0), "dash": Vector2(w - 315.0, h - 205.0),
-		"skill": Vector2(w - 187.0, h - 281.0), "potion": Vector2(w - 433.0, h - 77.0),
-		"interact": Vector2(w - 437.0, h - 187.0), "guard": Vector2(w - 360.0, h - 310.0)}
+	return default_control_centers_for(size)
+
+func clamp_control_point(at: Vector2, view: Vector2) -> Vector2:
+	var bounds: Rect2 = safe_layout_rect(view)
+	var margin: float = 56.0 * control_scale * screen_scale_for(view)
+	var min_x: float = bounds.position.x + margin
+	var max_x: float = maxf(min_x, bounds.end.x - margin)
+	var min_y: float = maxf(165.0 * screen_scale_for(view), bounds.position.y + 105.0 * screen_scale_for(view))
+	var max_y: float = maxf(min_y, bounds.end.y - margin)
+	return Vector2(clampf(at.x, min_x, max_x), clampf(at.y, min_y, max_y))
 
 func control_position(key: String) -> Vector2:
 	var defaults: Dictionary = default_control_centers()
@@ -35,7 +67,8 @@ func control_position(key: String) -> Vector2:
 		return Vector2.ZERO
 	if custom_positions.has(key):
 		var coords: Array = custom_positions[key]
-		return Vector2(float(coords[0]) * size.x, float(coords[1]) * size.y)
+		return clamp_control_point(Vector2(float(coords[0]) * size.x,
+			float(coords[1]) * size.y), size)
 	return defaults[key]
 
 func joystick_center() -> Vector2:
@@ -51,9 +84,7 @@ func control_centers() -> Dictionary:
 func set_control_position(key: String, at: Vector2) -> void:
 	if not CONTROL_KEYS.has(key) or size.x <= 0.0 or size.y <= 0.0:
 		return
-	var safe_margin: float = 64.0 * control_scale
-	var target: Vector2 = Vector2(clampf(at.x, safe_margin, maxf(safe_margin, size.x - safe_margin)),
-		clampf(at.y, 132.0 + 20.0 * control_scale, maxf(132.0, size.y - safe_margin)))
+	var target: Vector2 = clamp_control_point(at, size)
 	custom_positions[key] = [target.x / size.x, target.y / size.y]
 	queue_redraw()
 
@@ -98,7 +129,7 @@ func editor_touch_press(at: Vector2, touch_id: int) -> bool:
 		return false
 	if handle_menu_press(at):
 		return true
-	var closest := 115.0 * control_scale
+	var closest := 115.0 * active_control_scale()
 	var selected := ""
 	for key in CONTROL_KEYS:
 		var distance: float = control_position(key).distance_to(at)
@@ -243,7 +274,7 @@ func menu_button(rect: Rect2, label: String, code: String, accent: Color = Color
 	menu_buttons.append({"rect": rect, "key": code})
 
 func control_button(at: Vector2, radius: float, letter: String, label: String, tint: Color) -> void:
-	radius *= control_scale
+	radius *= active_control_scale()
 	draw_circle(at + Vector2(3, 5), radius + 2, faded(Color(0, 0, 0, 0.31)))
 	draw_circle(at, radius, faded(Color("183044") if game.dash_timer <= 0.0 else Color("295c66")))
 	draw_arc(at, radius - 2, 0, TAU, 36, faded(tint), 3.0, true)
@@ -252,7 +283,7 @@ func control_button(at: Vector2, radius: float, letter: String, label: String, t
 
 func draw_dash_button(at: Vector2) -> void:
 	var tint := Color("84d9f0")
-	var radius: float = 42.0 * control_scale
+	var radius: float = 42.0 * active_control_scale()
 	draw_circle(at + Vector2(3, 5), radius + 2.0, faded(Color(0, 0, 0, 0.31)))
 	draw_circle(at, radius, faded(Color("162c39")))
 	draw_arc(at, radius - 2.0, 0.0, TAU, 36, faded(tint), 2.0, true)
@@ -264,7 +295,7 @@ func draw_dash_button(at: Vector2) -> void:
 	centered(at.x, at.y + radius + 16, "DASH", 12, tint)
 
 func draw_guard_button(at: Vector2) -> void:
-	var radius: float = 37.0 * control_scale
+	var radius: float = 37.0 * active_control_scale()
 	var tint := Color("c2d5fb")
 	var active: bool = game.guard_window > 0.0
 	draw_circle(at + Vector2(3, 5), radius + 2.0, faded(Color(0, 0, 0, 0.31)))
@@ -284,7 +315,7 @@ func skill_status_text() -> String:
 	return "READY"
 
 func draw_skill_button(at: Vector2) -> void:
-	var radius: float = 45.0 * control_scale
+	var radius: float = 45.0 * active_control_scale()
 	var tint := Color("c6a2f5")
 	var recharging: bool = game.skill_timer > 0.0
 	var low_stamina: bool = game.stamina < 35.0
@@ -357,33 +388,39 @@ func draw_boss_health(w: float) -> void:
 
 func draw_game_status(w: float, h: float) -> void:
 	# Compact status strip: never blocks the central gameplay corridor.
-	box(Rect2(13, 12, 263, 85), Color("112636"), Color("3d7278"), 1.0)
-	text(Vector2(23, 35), "LV %d   %d COINS" % [game.level, game.coins], 17, Color("e9d69a"))
-	bar(Vector2(24, 55), 151, game.hp / game.max_hp, Color("e86d81"), "HP")
-	bar(Vector2(24, 80), 151, game.stamina / game.max_stamina, Color("57d5c8"), "STAMINA")
+	var safe_origin: Vector2 = safe_layout_rect(Vector2(w, h)).position - Vector2(13.0, 12.0)
+	box(Rect2(Vector2(13, 12) + safe_origin, Vector2(263, 85)), Color("112636"), Color("3d7278"), 1.0)
+	text(Vector2(23, 35) + safe_origin, "LV %d   %d COINS" % [game.level, game.coins], 17, Color("e9d69a"))
+	bar(Vector2(24, 55) + safe_origin, 151, game.hp / game.max_hp, Color("e86d81"), "HP")
+	bar(Vector2(24, 80) + safe_origin, 151, game.stamina / game.max_stamina, Color("57d5c8"), "STAMINA")
 	var needed = maxi(1, game.level * 55)
-	bar(Vector2(185, 55), 73, float(game.exp_points) / float(needed), Color("c9a0ee"), "EXP")
-	text(Vector2(187, 89), "%d/%d" % [game.exp_points, needed], 13, Color("d3c3e7"))
-	centered(w / 2.0, 30, game.area_name(), 17, Color("cfdecb"))
+	bar(Vector2(185, 55) + safe_origin, 73, float(game.exp_points) / float(needed), Color("c9a0ee"), "EXP")
+	text(Vector2(187, 89) + safe_origin, "%d/%d" % [game.exp_points, needed], 13, Color("d3c3e7"))
+	var bounds: Rect2 = safe_layout_rect(Vector2(w, h))
+	# Compact portrait-ish landscape/tablets need the area title below the top buttons.
+	var compact: bool = w < 1080.0
+	var title_y: float = 96.0 if compact else 30.0
+	var quest_y: float = 122.0 if compact else 55.0
+	centered(bounds.get_center().x, title_y, game.area_name(), 17, Color("cfdecb"))
 	if game.quest_stage < 3:
 		var quest_label = ("TALK TO MIRA  (%d/3 SEEDS)" % game.seeds) if game.quest_stage == 0 else ("AETHER SEEDS %d/3" % game.seeds if game.quest_stage == 1 else "DEFEAT THE WARDEN")
-		centered(w / 2.0, 55, quest_label, 14, Color("e4c891"))
+		centered(bounds.get_center().x, quest_y, quest_label, 14, Color("e4c891"))
 	else:
-		centered(w / 2.0, 55, "VALLEY SAVED — MAIN QUEST COMPLETE", 14, Color("a7f2bc"))
+		centered(bounds.get_center().x, quest_y, "VALLEY SAVED — MAIN QUEST COMPLETE", 14, Color("a7f2bc"))
 	for i in range(4):
 		var label = ["BAG", "QUEST", "MAP", "PAUSE"][i]
 		var key = ["bag", "quest", "map", "pause"][i]
-		var r = Rect2(w - 396 + i * 96, 18, 90, 49)
+		var r = Rect2(bounds.end.x - 396.0 + float(i) * 96.0, bounds.position.y + 6.0, 90.0, 49.0)
 		box(r, Color("162d40"), Color("6a9f9c"), 1.0)
 		centered(r.position.x + r.size.x / 2.0, r.position.y + 28, label, 15)
 		top_buttons.append({"rect": r, "key": key})
 
 func draw_mobile_controls(w: float, h: float) -> void:
 	var joy: Vector2 = joystick_center()
-	var radius: float = 99.0 * control_scale
+	var radius: float = 99.0 * active_control_scale()
 	draw_circle(joy, radius, faded(Color(0.02, 0.12, 0.18, 0.42)))
 	draw_arc(joy, radius - 3.0, 0, TAU, 52, faded(Color("a0dccd")), 3.0, true)
-	draw_circle(joy + Vector2(game.touch_axis * 55.0 * control_scale, 0), 46.0 * control_scale, faded(Color("31616f")))
+	draw_circle(joy + Vector2(game.touch_axis * 55.0 * active_control_scale(), 0), 46.0 * active_control_scale(), faded(Color("31616f")))
 	centered(joy.x, joy.y - radius - 9.0, "MOVE", 16, Color("b3e8dc"))
 	text(joy + Vector2(-66, 10), "<", 28, Color("e2f5f3"))
 	text(joy + Vector2(51, 10), ">", 28, Color("e2f5f3"))
@@ -544,9 +581,11 @@ func draw_settings(w: float, h: float) -> void:
 
 func draw_hud_editor(w: float, h: float) -> void:
 	# Editor displays actual mobile controls over the world; drag a control to relocate it.
-	var toolbar := Rect2(w * 0.5 - 525.0, 103.0, 1050.0, 118.0)
+	var bounds: Rect2 = safe_layout_rect(Vector2(w, h))
+	var toolbar_width: float = minf(1050.0, bounds.size.x - 12.0)
+	var toolbar: Rect2 = Rect2((w - toolbar_width) * 0.5, bounds.position.y + 91.0, toolbar_width, 118.0)
 	box(toolbar, Color(0.04, 0.09, 0.17, 0.92), Color("8bb4ca"), 2.0)
-	centered(w * 0.5, 127.0, "DRAG ANY CONTROL TO MOVE IT", 18, Color("f0eacb"))
+	centered(w * 0.5, toolbar.position.y + 24.0, "DRAG ANY CONTROL TO MOVE IT", 18, Color("f0eacb"))
 	var actions = [
 		{"name": "SMALLER", "key": "hud_smaller"},
 		{"name": "LARGER", "key": "hud_larger"},
@@ -556,12 +595,13 @@ func draw_hud_editor(w: float, h: float) -> void:
 		{"name": "SAVE & EXIT", "key": "hud_done"}
 	]
 	for i in range(actions.size()):
-		var x: float = toolbar.position.x + 16.0 + float(i) * 173.0
-		menu_button(Rect2(x, 147.0, 164.0, 54.0), actions[i]["name"], actions[i]["key"],
+		var slot: float = (toolbar_width - 24.0) / float(actions.size())
+		var x: float = toolbar.position.x + 12.0 + float(i) * slot
+		menu_button(Rect2(x, toolbar.position.y + 45.0, slot - 8.0, 54.0), actions[i]["name"], actions[i]["key"],
 			Color("f0b7aa") if i == 4 else Color("91d8cd"))
 	centered(w * 0.5, h - 20.0, "SIZE %d%%     OPACITY %d%%    |    Positions saved automatically" % [int(control_scale * 100.0), int(control_opacity * 100.0)], 15, Color("e8dfbc"))
 	if editor_key != "":
-		draw_arc(control_position(editor_key), 74.0 * control_scale, 0, TAU, 52, Color("ffe4a0"), 4.0, true)
+		draw_arc(control_position(editor_key), 74.0 * active_control_scale(), 0, TAU, 52, Color("ffe4a0"), 4.0, true)
 
 func draw_defeat(w: float, h: float) -> void:
 	var r = modal(w, h, "YOUR LIGHT HAS FADED", 580, 360)

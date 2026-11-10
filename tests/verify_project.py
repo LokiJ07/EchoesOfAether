@@ -35,6 +35,9 @@ for symbol in ["func editor_touch_press(", "func editor_touch_drag(", "func edit
 assert (r/"tests/v06_custom_hud.gd").is_file(), "Missing v0.6 playable regression suite"
 assert 'window/handheld/orientation=4' in (r/'project.godot').read_text()
 assert 'window/stretch/aspect="expand"' in (r/'project.godot').read_text(), "Ultrawide phones must not be letterboxed"
+assert 'screen/support_small=true' in preset, "Small Android screens must be supported"
+assert 'func safe_layout_rect(' in hud and 'func default_control_centers_for(' in hud, "Missing adaptive HUD layout"
+assert 'func active_control_scale(' in hud, "Touch target size must scale with viewport"
 assert 'WORLD_WIDTH := 15800.0' in contents
 for symbol in ['func portal_jump(', 'func nearby_portal_index(', 'func active_boss_info(', 'func draw_expansion_scenery(', 'func draw_expansion_scenery(', 'func go_expansion_world(', 'func update_moving_platforms(', 'func expansion_quest_label(']:
     assert symbol in contents, f"Missing World Expansion mechanic: {symbol}"

@@ -133,6 +133,7 @@ jobs:
           set -o pipefail
           /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v06_custom_hud.gd 2>&1 | tee /tmp/godot-v06.log
           grep -Fq 'PASS: v0.6 HUD drag, scale, transparency, reset, persistence, guard, combo, mastery, legacy saves' /tmp/godot-v06.log
+          grep -Fq 'PASS: adaptive HUD stays in bounds on compact, 16:9, 20:9, 4:3 and ultrawide displays' /tmp/godot-v06.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V0.6 FAILED)' /tmp/godot-v06.log; then exit 1; fi
 
       - name: Export signed debug APK
