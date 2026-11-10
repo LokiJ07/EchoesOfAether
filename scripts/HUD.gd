@@ -61,6 +61,10 @@ func handle_menu_press(pos: Vector2) -> bool:
 			"buy0": game.buy_shop_item(0)
 			"buy1": game.buy_shop_item(1)
 			"buy2": game.buy_shop_item(2)
+			"train0": game.unlock_rune(0)
+			"train1": game.unlock_rune(1)
+			"train2": game.unlock_rune(2)
+			"leave_trainer": game.state = "playing"
 			"sound": game.sound_on = not game.sound_on
 			"music":
 				game.music_on = not game.music_on
@@ -109,6 +113,19 @@ func control_button(at: Vector2, radius: float, letter: String, label: String, t
 	centered(at.x, at.y + 8, letter, 27, Color("f2ffef"))
 	centered(at.x, at.y + radius + 16, label, 12, tint)
 
+func draw_dash_button(at: Vector2) -> void:
+	var tint := Color("84d9f0")
+	var radius := 36.0
+	draw_circle(at + Vector2(3, 5), radius + 2.0, Color(0, 0, 0, 0.31))
+	draw_circle(at, radius, Color("162c39"))
+	draw_arc(at, radius - 2.0, 0.0, TAU, 36, tint, 2.0, true)
+	if game.dash_cooldown > 0.0:
+		draw_arc(at, radius - 3, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - game.dash_cooldown / 0.7), 40, tint, 4.0, true)
+		centered(at.x, at.y + 7.0, "%.1fs" % game.dash_cooldown, 18, tint)
+	else:
+		centered(at.x, at.y + 8.0, ">>", 25, tint)
+	centered(at.x, at.y + radius + 16, "DASH", 12, tint)
+
 func skill_status_text() -> String:
 	if game.skill_timer > 0.0:
 		return "%.1fs" % game.skill_timer
@@ -142,9 +159,10 @@ func _draw() -> void:
 	if game.state == "main":
 		draw_main_menu(w, h)
 		return
-	if game.state in ["playing", "inventory", "quests", "shop", "pause", "settings", "victory", "defeat"]:
+	if game.state in ["playing", "inventory", "quests", "shop", "trainer", "pause", "settings", "victory", "defeat"]:
 		draw_game_status(w, h)
 	if game.state == "playing":
+		draw_boss_health(w)
 		if game.dialogue != "":
 			draw_dialogue(w, h)
 		else:
@@ -160,12 +178,26 @@ func _draw() -> void:
 		"inventory": draw_inventory(w, h)
 		"quests": draw_quests(w, h)
 		"shop": draw_shop(w, h)
+		"trainer": draw_trainer(w, h)
 		"pause": draw_pause(w, h)
 		"settings": draw_settings(w, h)
 		"defeat": draw_defeat(w, h)
 		"victory": draw_victory(w, h)
 	if game.message_time > 0:
 		centered(w / 2.0, h - 24, game.message, 16, Color("ffd59a"))
+
+func draw_boss_health(w: float) -> void:
+	if game.quest_stage < 2 or game.defeated_boss or game.player_pos.x < 7190.0:
+		return
+	for enemy in game.enemies:
+		if enemy["type"] != "boss" or enemy["hp"] <= 0.0:
+			continue
+		var fraction: float = clampf(enemy["hp"] / enemy["max_hp"], 0.0, 1.0)
+		var x := w * 0.5 - 190.0
+		draw_rect(Rect2(x, 73, 380, 33), Color(0.06, 0.07, 0.15, 0.86))
+		draw_rect(Rect2(x + 7, 92, 366.0 * fraction, 8), Color("da77c0") if fraction < 0.48 else Color("8ec8db"))
+		centered(w * 0.5, 87, "WARDEN OF THE FADING STAR", 13, Color("f4cde4"))
+		return
 
 func draw_game_status(w: float, h: float) -> void:
 	# Compact status strip: never blocks the central gameplay corridor.
@@ -201,11 +233,12 @@ func draw_mobile_controls(w: float, h: float) -> void:
 	var c = control_centers()
 	control_button(c["attack"], 44, "S", "ATTACK", Color("f2ba7b"))
 	control_button(c["jump"], 38, "^", "JUMP", Color("b4e4c2"))
-	control_button(c["dash"], 36, ">>", "DASH", Color("84d9f0"))
+	draw_dash_button(c["dash"])
 	draw_skill_button(c["skill"])
 	control_button(c["potion"], 32, "+", "POTION %d" % game.potions, Color("f5a2a2"))
 	if game.nearby_npc() != "":
-		control_button(c["interact"], 32, "!", "TALK", Color("f3db98"))
+		var label := "OPEN" if game.nearby_npc() == "cache" else ("TRAIN" if game.nearby_npc() == "scout" else ("SHOP" if game.nearby_npc() == "merchant" else "TALK"))
+		control_button(c["interact"], 32, "!", label, Color("f3db98"))
 
 func modal(w: float, h: float, heading: String, width: float = 650.0, height: float = 470.0) -> Rect2:
 	draw_rect(Rect2(0, 0, w, h), Color(0.02, 0.05, 0.11, 0.75))
@@ -224,7 +257,7 @@ func draw_main_menu(w: float, h: float) -> void:
 	menu_button(Rect2(cx - 171, h * 0.38, 342, 56), "NEW ADVENTURE", "new")
 	menu_button(Rect2(cx - 171, h * 0.49, 342, 56), "CONTINUE JOURNEY", "continue", Color("9dacec"))
 	menu_button(Rect2(cx - 171, h * 0.60, 342, 56), "SETTINGS", "settings", Color("bca7c8"))
-	centered(cx, h - 19, "OFFLINE  |  ORIGINAL 2D FANTASY ADVENTURE  |  v0.1", 14, Color("a4c3bf"))
+	centered(cx, h - 19, "OFFLINE  |  RELIC HUNTERS UPDATE  |  v0.2", 14, Color("a4c3bf"))
 
 func draw_dialogue(w: float, h: float) -> void:
 	var r = Rect2(w * 0.16, h * 0.70, w * 0.68, h * 0.23)
@@ -246,28 +279,36 @@ func draw_dialogue(w: float, h: float) -> void:
 	text(r.position + Vector2(r.size.x - 188, r.size.y - 13), "TAP TO CLOSE", 14, Color("9fe1d2"))
 
 func draw_inventory(w: float, h: float) -> void:
-	var r = modal(w, h, "TRAVELER'S INVENTORY", 690, 474)
-	var x = r.position.x + 54
-	var y = r.position.y + 115
-	for i in range(4):
-		var icon = ["POTIONS", "COINS", "AETHER SEEDS", "SWORD"][i]
-		var amount = [str(game.potions), str(game.coins), "%d / 3" % game.seeds, "LEVEL %d" % game.sword_level][i]
-		var rr = Rect2(x + float(i % 2) * 298, y + float(floori(float(i) / 2.0)) * 102, 272, 80)
+	var r = modal(w, h, "TRAVELER'S INVENTORY", 700, 520)
+	var x = r.position.x + 54.0
+	var y = r.position.y + 100.0
+	var icons = ["POTIONS", "COINS", "AETHER SEEDS", "SWORD", "ARMOR", "RELIC SHARDS"]
+	var amounts = [str(game.potions), str(game.coins), "%d / 3" % game.seeds,
+		"LEVEL %d" % game.sword_level, "LEVEL %d" % game.armor_level, "%d  (2 PER RUNE)" % game.relic_shards]
+	for i in range(6):
+		var rr = Rect2(x + float(i % 2) * 302.0, y + float(floori(float(i) / 2.0)) * 99.0, 280.0, 79.0)
 		box(rr, Color("233a49"), Color("5c8d94"))
-		text(rr.position + Vector2(16, 28), icon, 17, Color("edd8ac"))
-		text(rr.position + Vector2(16, 58), amount, 24, Color("a6f3df"))
-	text(Vector2(x, y + 252), "ARMOR LV %d   |   ATTACK %d   |   MAX HP %d" % [game.armor_level, 17 + game.sword_level * 8 - 8, int(game.max_hp)], 17)
-	menu_button(Rect2(w / 2.0 - 141, r.end.y - 67, 282, 46), "BACK TO ADVENTURE", "resume")
+		text(rr.position + Vector2(16, 28), icons[i], 16, Color("edd8ac"))
+		text(rr.position + Vector2(16, 58), amounts[i], 22, Color("a6f3df"))
+	text(Vector2(x, r.position.y + 421.0), "HIDDEN RELIC CACHES: %d / 6   |   TRAIN WITH TARO" % game.opened_caches.size(), 15, Color("f0ddb4"))
+	menu_button(Rect2(w / 2.0 - 141, r.end.y - 61, 282, 44), "BACK TO ADVENTURE", "resume")
 
 func draw_quests(w: float, h: float) -> void:
-	var r = modal(w, h, "THE FADING STAR — QUEST LOG", 730, 455)
-	var x = r.position.x + 52
-	var y = r.position.y + 119
-	var entries = ["1. Speak with Mira in Moonhaven Village", "2. Recover 3 Aether Seeds from forest slimes", "3. Pass the Ancient Gate in the Sunken Ruins", "4. Defeat the Warden of the Fading Star"]
+	var r = modal(w, h, "JOURNAL: THE FADING STAR & RELIC HUNTS", 840, 520)
+	var x = r.position.x + 39.0
+	var y = r.position.y + 99.0
+	var entries = ["Speak to Mira in Moonhaven", "Gather 3 Aether Seeds", "Pass the Ancient Gate", "Defeat the Star Warden"]
 	var done = [game.quest_stage >= 1, game.quest_stage >= 2, game.quest_stage >= 2, game.quest_stage >= 3]
 	for i in range(entries.size()):
-		text(Vector2(x, y + i * 51), ("[DONE] " if done[i] else "[  ] ") + entries[i], 17, Color("83e6bf") if done[i] else Color("f3e4c4"))
-	menu_button(Rect2(w / 2.0 - 139, r.end.y - 71, 278, 46), "BACK TO ADVENTURE", "resume")
+		text(Vector2(x, y + i * 31.0), ("[DONE] " if done[i] else "[    ] ") + entries[i], 17, Color("83e6bf") if done[i] else Color("f3e4c4"))
+	text(Vector2(x, y + 154.0), "OPTIONAL HUNTS  -  automatic one-time rewards", 17, Color("ebd596"))
+	var moth_done := game.claimed_hunts.has("moth")
+	var guard_done := game.claimed_hunts.has("sentinel")
+	text(Vector2(x, y + 190.0), ("[DONE] " if moth_done else "[    ] ") + "Dusk Moths: %d/3    Reward: 75 coins + 1 potion" % mini(3, game.hunted_moths), 16, Color("a2ead1") if moth_done else Color("e9e2cf"))
+	text(Vector2(x, y + 221.0), ("[DONE] " if guard_done else "[    ] ") + "Stone Sentinels: %d/2    Reward: 100 coins + 15 max HP" % mini(2, game.hunted_sentinels), 16, Color("a2ead1") if guard_done else Color("e9e2cf"))
+	text(Vector2(x, y + 269.0), "RELIC HUNT: %d / 6 caches opened  |  %d shards left" % [game.opened_caches.size(), game.relic_shards], 17, Color("f2dba4"))
+	text(Vector2(x, y + 297.0), "Find glowing chests; bring relic shards to TARO for new abilities.", 15, Color("b9dbc8"))
+	menu_button(Rect2(w / 2.0 - 139, r.end.y - 61, 278, 44), "BACK TO ADVENTURE", "resume")
 
 func draw_shop(w: float, h: float) -> void:
 	var r = modal(w, h, "LYRA'S STARLIT EMPORIUM", 743, 470)
@@ -276,6 +317,19 @@ func draw_shop(w: float, h: float) -> void:
 	for i in range(3):
 		menu_button(Rect2(w / 2.0 - 300, r.position.y + 127 + float(i) * 74, 600, 58), labels[i], "buy%d" % i)
 	menu_button(Rect2(w / 2.0 - 142, r.end.y - 65, 284, 45), "LEAVE SHOP", "resume")
+
+func draw_trainer(w: float, h: float) -> void:
+	var r = modal(w, h, "TARO'S AETHER RUNE TRAINING", 778, 520)
+	centered(w / 2.0, r.position.y + 99.0, "AVAILABLE: %d RELIC SHARDS   |   EACH RUNE COSTS 2" % game.relic_shards, 18, Color("edd6a1"))
+	var names = ["WINDSTEP  -  DOUBLE JUMP", "ASTRAL EDGE  -  POWERFUL BOLT", "VITAL SPARK  -  +35 STAMINA"]
+	var descriptions = ["Jump a second time while airborne", "Aether Bolt deals +28 damage and flies faster", "Boosts stamina capacity and regeneration"]
+	for i in range(3):
+		var top: float = r.position.y + 125.0 + float(i) * 99.0
+		var owned: bool = game.rune_upgrades[i]
+		var label: String = ("UNLOCKED: " if owned else "LEARN (2): ") + names[i]
+		menu_button(Rect2(w / 2.0 - 315.0, top, 630.0, 54.0), label, "train%d" % i, Color("75d9bd") if owned else Color("c6b3eb"))
+		centered(w / 2.0, top + 76.0, descriptions[i], 14, Color("bad4c7"))
+	menu_button(Rect2(w / 2.0 - 137.0, r.end.y - 56.0, 274.0, 41.0), "LEAVE TRAINING", "leave_trainer")
 
 func draw_pause(w: float, h: float) -> void:
 	var r = modal(w, h, "JOURNEY PAUSED", 507, 477)

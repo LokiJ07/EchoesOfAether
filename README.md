@@ -1,4 +1,21 @@
-# ECHOES OF AETHER — Android 2D Action Adventure
+# Echoes of Aether v0.2 — RELIC HUNTERS (Android)
+
+**Major playable update** with permanent exploration rewards, combat enhancements and new challenges. Compatible with existing v0.1 Android saves and install-over updates.
+
+## New in v0.2
+
+- **Six hidden Aether caches**, across Moonhaven, Whisperwood and the Sunken Ruins. Stand near a glowing chest and use the OPEN action; each chest gives **1 relic shard + 25 coins**, only once per save.
+- **Taro's Rune Trainer**, near the village's Wayfarer's Rest (world x~1510), offers three permanent powers for 2 shards each: **Windstep** (double jump), **Astral Edge** (+28 Aether Bolt damage and a faster projectile), and **Vital Spark** (+35 maximum stamina and quicker recovery).
+- **Two one-time bounty hunts**, active automatically: defeat **3 moths** for 75 coins + 1 potion, and **2 sentinels** for 100 coins + 15 maximum HP. Rewards persist and cannot be claimed twice.
+- **Mobile gameplay polish:** context-aware OPEN/TRAIN/SHOP/TALK buttons, visible dash cooldown countdown, boss HP bar, damage popups, atmospheric dusk effect, improved quests and inventory screens.
+- **Legacy save migration** for saves made by the earlier APK. Continue Journey retains level, coins, gear, seeds, main quest and checkpoint while initializing new relic content to unopened.
+- **GitHub CI** now tests real chest-opening progression, the three upgrades, double-jump, bounty rewards, old-save migration and original boss story, then verifies APK package ID, signing certificate and versionCode for update installs.
+
+**Upgrade your existing phone install:** download the newest successful Actions artifact, unzip the APK and tap Update. Do *not* uninstall, because that can erase the local saved adventure. The same debug key and package ID are deliberately retained. This is an offline developer build, not a store-signed production release.
+
+---
+
+## Original playable foundation
 
 Original Godot **4.5.2** project written in GDScript. Designed as an offline, landscape 2D mobile game. No third-party sprites, copyrighted game assets or mandatory online services.
 

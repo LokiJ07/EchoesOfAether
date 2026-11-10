@@ -6,6 +6,7 @@ const WORLD_WIDTH := 8400.0
 const FLOOR_Y := 500.0
 const GRAVITY := 1250.0
 const SKILL_COOLDOWN := 2.25
+const CACHE_LOCATIONS = [690.0, 1940.0, 3400.0, 4560.0, 5350.0, 6780.0]
 const HERO_IDLE = preload("res://assets/hero_idle.png")
 const HERO_RUN = preload("res://assets/hero_run.png")
 const HERO_JUMP = preload("res://assets/hero_jump.png")
@@ -49,6 +50,14 @@ var sword_level := 1
 var armor_level := 1
 var seeds := 0
 var quest_stage := 0  # 0 not accepted, 1 gather 3 seeds, 2 fight Warden, 3 boss defeated
+var relic_shards := 0
+var opened_caches: Array = []
+var rune_upgrades: Array = [false, false, false]  # Windstep, Astral Edge, Vital Spark
+var jump_count := 0
+var hunted_moths := 0
+var hunted_sentinels := 0
+var claimed_hunts: Array = []
+var floating_text: Array = []
 var checkpoint_x := 145.0
 var defeated_boss := false
 var dying := false
@@ -166,8 +175,9 @@ func _physics_process(dt: float) -> void:
 		update_projectiles(dt)
 		update_loot(dt)
 		update_particles(dt)
+		update_floating_text(dt)
 		update_camera()
-		stamina = minf(max_stamina, stamina + 18.0 * dt)
+		stamina = minf(max_stamina, stamina + (25.0 if rune_upgrades[2] else 18.0) * dt)
 		if hold_attack or Input.is_key_pressed(KEY_J):
 			attack()
 		autosave_timer += dt
@@ -206,11 +216,13 @@ func update_player(dt: float) -> void:
 		player_pos.y = floor
 		velocity.y = 0.0
 		on_ground = true
+		jump_count = 0
 	for p in platforms:
 		if velocity.y >= 0.0 and old_foot <= p.position.y + 8.0 and player_pos.y >= p.position.y and player_pos.x >= p.position.x - 12.0 and player_pos.x <= p.end.x + 12.0:
 			player_pos.y = p.position.y
 			velocity.y = 0.0
 			on_ground = true
+			jump_count = 0
 	if player_pos.y > 850.0:
 		damage_player(999.0)
 	if player_pos.x > 4715.0 and checkpoint_x < 4780.0:
@@ -224,10 +236,12 @@ func update_player(dt: float) -> void:
 
 func jump() -> void:
 	if state != "playing": return
-	if on_ground:
-		velocity.y = -550.0
+	if on_ground or (rune_upgrades[0] and jump_count < 2):
+		var second_jump: bool = not on_ground
+		jump_count = 2 if second_jump else 1
+		velocity.y = -515.0 if second_jump else -550.0
 		on_ground = false
-		spawn_dust(player_pos, Color(0.65, 0.9, 0.8))
+		spawn_dust(player_pos, Color("a9a4ff") if second_jump else Color("a6e8cc"), 13 if second_jump else 7)
 		play_sfx("jump")
 
 func dash() -> void:
@@ -256,7 +270,7 @@ func use_skill() -> void:
 	if state != "playing" or skill_timer > 0.0 or stamina < 35.0: return
 	stamina -= 35.0
 	skill_timer = SKILL_COOLDOWN
-	bolts.append({"pos": player_pos + Vector2(float(facing) * 28.0, -36.0), "vel": Vector2(float(facing) * 570.0, 0), "ttl": 1.8, "kind": "hero", "damage": 40.0 + float(level * 3)})
+	bolts.append({"pos": player_pos + Vector2(float(facing) * 28.0, -36.0), "vel": Vector2(float(facing) * (660.0 if rune_upgrades[1] else 570.0), 0), "ttl": 1.8, "kind": "hero", "damage": 40.0 + float(level * 3) + (28.0 if rune_upgrades[1] else 0.0)})
 	spawn_dust(player_pos + Vector2(0, -32), Color(0.2, 0.8, 1.0), 10)
 	play_sfx("skill")
 
@@ -267,6 +281,7 @@ func damage_player(amount: float) -> void:
 	if state != "playing" or invincible > 0.0: return
 	var actual = maxf(1.0, amount - float(armor_level - 1) * 3.0)
 	hp -= actual
+	add_float_text(player_pos + Vector2(0, -80), "-%d HP" % int(actual), Color("ff9b96"))
 	invincible = 0.65
 	screen_shake = 0.17
 	spawn_dust(player_pos + Vector2(0, -30), Color(1, 0.45, 0.43), 8)
@@ -289,6 +304,7 @@ func heal() -> void:
 func hit_enemy(e: Dictionary, amount: float) -> void:
 	if e["hp"] <= 0.0: return
 	e["hp"] -= amount
+	add_float_text(Vector2(e["x"], e["y"] - 76), "%d" % int(amount), Color("ffe3a2"))
 	e["stun"] = 0.19
 	e["attack_anim"] = 0.20
 	spawn_dust(Vector2(e["x"], e["y"] - 30), Color(0.97, 0.67, 0.29), 6)
@@ -304,6 +320,7 @@ func enemy_died(e: Dictionary) -> void:
 	loot.append({"kind": "coin", "pos": Vector2(e["x"], e["y"] - 25), "t": 0.0, "amount": 90 if is_boss else rng.randi_range(5, 13)})
 	if e["seed_drop"] and seeds < 3 and quest_stage <= 1:
 		loot.append({"kind": "seed", "pos": Vector2(e["x"] + 18, e["y"] - 42), "t": 0.0, "amount": 1})
+	register_hunt(e["type"])
 	if rng.randf() < 0.13:
 		loot.append({"kind": "potion", "pos": Vector2(e["x"] - 15, e["y"] - 38), "t": 0.0, "amount": 1})
 	if is_boss:
@@ -314,6 +331,81 @@ func enemy_died(e: Dictionary) -> void:
 		play_sfx("win")
 		state = "victory"
 		save_game()
+
+func register_hunt(kind: String) -> void:
+	if kind == "moth":
+		hunted_moths += 1
+		if hunted_moths >= 3 and not claimed_hunts.has("moth"):
+			claimed_hunts.append("moth")
+			coins += 75
+			potions += 1
+			show_message("MOTH HUNT COMPLETE! +75 coins and 1 potion", 4.0)
+			save_game()
+	elif kind == "sentinel":
+		hunted_sentinels += 1
+		if hunted_sentinels >= 2 and not claimed_hunts.has("sentinel"):
+			claimed_hunts.append("sentinel")
+			coins += 100
+			max_hp += 15.0
+			hp = minf(max_hp, hp + 15.0)
+			show_message("GUARDIAN HUNT COMPLETE! +100 coins, +15 max HP", 4.0)
+			save_game()
+
+func nearby_cache_index() -> int:
+	for i in range(CACHE_LOCATIONS.size()):
+		if opened_caches.has(i):
+			continue
+		if absf(player_pos.x - CACHE_LOCATIONS[i]) < 92.0 and absf(player_pos.y - FLOOR_Y) < 135.0:
+			return i
+	return -1
+
+func open_cache(index: int) -> bool:
+	if state != "playing" or index < 0 or index >= CACHE_LOCATIONS.size() or opened_caches.has(index):
+		return false
+	if absf(player_pos.x - CACHE_LOCATIONS[index]) >= 105.0 or absf(player_pos.y - FLOOR_Y) > 140.0:
+		return false
+	opened_caches.append(index)
+	relic_shards += 1
+	coins += 25
+	spawn_dust(Vector2(CACHE_LOCATIONS[index], FLOOR_Y - 28), Color("ffd98e"), 18)
+	play_sfx("loot")
+	show_message("AETHER CACHE %d/6! +1 relic shard, +25 coins" % opened_caches.size(), 3.6)
+	save_game()
+	return true
+
+func unlock_rune(index: int) -> bool:
+	if state != "trainer" or index < 0 or index >= rune_upgrades.size():
+		return false
+	if rune_upgrades[index]:
+		show_message("This rune is already unlocked!", 2.0)
+		return false
+	if relic_shards < 2:
+		show_message("Find 2 relic shards in hidden caches first!", 2.8)
+		return false
+	relic_shards -= 2
+	rune_upgrades[index] = true
+	match index:
+		0: show_message("WINDSTEP UNLOCKED - Tap JUMP again in midair!", 4.0)
+		1: show_message("ASTRAL EDGE UNLOCKED - Your Aether Bolt is stronger!", 4.0)
+		2:
+			max_stamina += 35.0
+			stamina = max_stamina
+			show_message("VITAL SPARK UNLOCKED - More stamina and faster recovery!", 4.0)
+	spawn_dust(player_pos, Color("e5bcff"), 16)
+	play_sfx("win")
+	save_game()
+	return true
+
+func add_float_text(pos: Vector2, content: String, tint: Color) -> void:
+	floating_text.append({"pos": pos, "text": content, "tint": tint, "life": 0.8})
+
+func update_floating_text(dt: float) -> void:
+	for i in range(floating_text.size() - 1, -1, -1):
+		var line: Dictionary = floating_text[i]
+		line["pos"] = line["pos"] + Vector2(0, -39.0 * dt)
+		line["life"] -= dt
+		if line["life"] <= 0.0:
+			floating_text.remove_at(i)
 
 func gain_exp(value: int) -> void:
 	exp_points += value
@@ -482,6 +574,7 @@ func show_message(line: String, duration: float = 2.5) -> void:
 	message_time = duration
 
 func nearby_npc() -> String:
+	if nearby_cache_index() >= 0: return "cache"
 	if absf(player_pos.x - 415.0) < 105.0: return "mira"
 	if absf(player_pos.x - 1030.0) < 105.0: return "merchant"
 	if absf(player_pos.x - 1510.0) < 100.0: return "scout"
@@ -490,6 +583,9 @@ func nearby_npc() -> String:
 
 func interact() -> void:
 	if state != "playing": return
+	if nearby_cache_index() >= 0:
+		open_cache(nearby_cache_index())
+		return
 	if dialogue != "":
 		dialogue = ""
 		return
@@ -507,8 +603,7 @@ func interact() -> void:
 			else:
 				dialogue = "MIRA: The Aether shines again. The valley remembers your courage. Thank you, guardian."
 		"merchant": state = "shop"
-		"scout":
-			dialogue = "TARO: Try J for sword, K for Aether Bolt, SPACE to jump, SHIFT to dash. Explore the high platforms for shortcuts!"
+		"scout": state = "trainer"
 		"gate":
 			if quest_stage < 2: show_message("The ancient gate demands 3 Aether Seeds.", 2.8)
 			else: show_message("The star-shaped seal opens to your touch.", 2.8)
@@ -557,6 +652,14 @@ func start_new_game() -> void:
 	armor_level = 1
 	seeds = 0
 	quest_stage = 0
+	relic_shards = 0
+	opened_caches.clear()
+	rune_upgrades = [false, false, false]
+	jump_count = 0
+	hunted_moths = 0
+	hunted_sentinels = 0
+	claimed_hunts.clear()
+	floating_text.clear()
 	checkpoint_x = 145.0
 	defeated_boss = false
 	bolts.clear()
@@ -576,6 +679,7 @@ func continue_game() -> void:
 		state = "playing"
 		player_pos = Vector2(checkpoint_x, FLOOR_Y)
 		velocity = Vector2.ZERO
+		jump_count = 0
 		hp = maxf(35.0, hp)
 		dialogue = ""
 		show_message("Journey restored at your last checkpoint.", 2.7)
@@ -586,6 +690,7 @@ func respawn() -> void:
 	hp = max_hp
 	stamina = max_stamina
 	velocity = Vector2.ZERO
+	jump_count = 0
 	player_pos = Vector2(checkpoint_x, FLOOR_Y)
 	invincible = 1.4
 	bolts.clear()
@@ -597,7 +702,10 @@ func save_game() -> void:
 		"coins": coins, "potions": potions, "sword": sword_level, "armor": armor_level,
 		"stamina_max": max_stamina, "seeds": seeds, "quest": quest_stage,
 		"checkpoint": checkpoint_x, "boss": defeated_boss, "sound": sound_on,
-		"music": music_on, "save_version": 1}
+		"music": music_on, "save_version": 2,
+		"relic_shards": relic_shards, "opened_caches": opened_caches, "rune_upgrades": rune_upgrades,
+		"hunt_moths": hunted_moths, "hunt_sentinels": hunted_sentinels,
+		"claimed_hunts": claimed_hunts}
 	var file = FileAccess.open("user://aether_save.json", FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(values))
@@ -626,6 +734,17 @@ func load_game() -> bool:
 	stamina = max_stamina
 	seeds = int(data.get("seeds", 0))
 	quest_stage = int(data.get("quest", 0))
+	# Legacy v1 saves do not contain relic data.
+	relic_shards = maxi(0, int(data.get("relic_shards", 0)))
+	opened_caches = data.get("opened_caches", [])
+	rune_upgrades = data.get("rune_upgrades", [false, false, false])
+	if rune_upgrades.size() != 3:
+		rune_upgrades = [false, false, false]
+	hunted_moths = int(data.get("hunt_moths", 0))
+	hunted_sentinels = int(data.get("hunt_sentinels", 0))
+	claimed_hunts = data.get("claimed_hunts", [])
+	jump_count = 0
+	floating_text.clear()
 	checkpoint_x = float(data.get("checkpoint", 145))
 	defeated_boss = bool(data.get("boss", false))
 	sound_on = bool(data.get("sound", true))
@@ -642,7 +761,7 @@ func _input(event: InputEvent) -> void:
 				state = "pause"
 				save_game()
 			elif state == "settings": state = hud.settings_return
-			elif state in ["pause", "inventory", "quests", "shop"]: state = "playing"
+			elif state in ["pause", "inventory", "quests", "shop", "trainer"]: state = "playing"
 		elif state == "playing":
 			match key:
 				KEY_SPACE, KEY_W, KEY_UP: jump()
@@ -729,6 +848,10 @@ func _draw() -> void:
 			var cx = float(i) * 170.0 + x0 * 0.03
 			var mountain = PackedVector2Array([Vector2(cx - 145, 440), Vector2(cx, 245 + sin(float(i) * 2.5) * 55), Vector2(cx + 170, 440)])
 			draw_colored_polygon(mountain, Color(0.09, 0.17, 0.23, 0.65) if region < 2 else Color(0.15, 0.13, 0.24, 0.75))
+	# Subtle dusk/night tint across each biome, without extra mobile shaders.
+	var twilight: float = 0.13 + 0.17 * (0.5 + 0.5 * sin(elapsed * 0.02))
+	if right >= 0.0:
+		draw_rect(Rect2(maxf(0.0, left), -180, minf(WORLD_WIDTH, right + 20.0) - maxf(0.0, left), 690), Color(0.08, 0.03, 0.19, twilight))
 	# Stars and fireflies are purposely deterministic in space and animated only in brightness.
 	for i in range(70):
 		var sx = float(i * 167 % 8363)
@@ -788,6 +911,18 @@ func _draw() -> void:
 		draw_label(Vector2(310, 295), "MIRA'S HALL", 16, Color("f3dba1"))
 		draw_label(Vector2(886, 295), "STARLIT EMPORIUM", 15, Color("f3dba1"))
 		draw_label(Vector2(1330, 295), "WAYFARER'S REST", 15, Color("f3dba1"))
+	# Hidden hand-placed relic caches with an animated golden aura.
+	for cache_id in range(CACHE_LOCATIONS.size()):
+		if opened_caches.has(cache_id): continue
+		var chest_x: float = CACHE_LOCATIONS[cache_id]
+		if chest_x < left - 50.0 or chest_x > right + 50.0: continue
+		var pulse: float = 0.5 + 0.5 * sin(elapsed * 3.0 + float(cache_id))
+		draw_circle(Vector2(chest_x, FLOOR_Y - 25), 34.0 + pulse * 6.0, Color(0.98, 0.73, 0.28, 0.08 + pulse * 0.11))
+		draw_rect(Rect2(chest_x - 24, FLOOR_Y - 36, 48, 33), Color("694b36"))
+		draw_rect(Rect2(chest_x - 24, FLOOR_Y - 39, 48, 12), Color("c19a59"))
+		draw_rect(Rect2(chest_x - 24, FLOOR_Y - 39, 48, 36), Color("ffe1a0"), false, 2.0)
+		draw_rect(Rect2(chest_x - 5, FLOOR_Y - 29, 10, 13), Color("b4f5e0"))
+		draw_label(Vector2(chest_x - 29, FLOOR_Y - 57), "RELIC", 13, Color("ffebb6"))
 	for npc in [{"x": 415.0,"name": "MIRA"}, {"x": 1030.0,"name": "LYRA"}, {"x": 1510.0,"name": "TARO"}]:
 		if absf(npc["x"] - camera_x) > 680.0: continue
 		var bob = 2.0 * sin(elapsed * 1.5 + npc["x"])
@@ -846,7 +981,11 @@ func _draw() -> void:
 			var slash_center = player_pos + Vector2(float(facing) * 22.0, -37.0)
 			draw_arc(slash_center, 54.0, -1.1 if facing > 0 else 2.05, 1.25 if facing > 0 else 4.35, 22, Color("b8f6ff"), 7.0, true)
 		if nearby_npc() != "" and dialogue == "" and state == "playing":
-			draw_label(player_pos + Vector2(-45, -92), "TAP TALK / E", 15, Color("ffefbd"))
+			var verb := "OPEN" if nearby_npc() == "cache" else ("TRAIN" if nearby_npc() == "scout" else ("SHOP" if nearby_npc() == "merchant" else "TALK"))
+			draw_label(player_pos + Vector2(-45, -92), "TAP %s / E" % verb, 15, Color("ffefbd"))
+	for ft in floating_text:
+		if absf(ft["pos"].x - camera_x) < 700.0:
+			draw_label(ft["pos"], ft["text"], 18, ft["tint"])
 	for p in particles:
 		draw_rect(Rect2(p["pos"].x, p["pos"].y, 4, 4), Color(p["color"], clampf(p["life"] * 2, 0, 1)))
 	if quest_stage >= 2 and left < 7900 and right > 7500:
