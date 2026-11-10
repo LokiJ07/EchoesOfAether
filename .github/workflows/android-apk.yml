@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   android:
@@ -19,6 +19,27 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Integrate original Higgsfield v1 realm backdrops
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/fetch_v1_art.py
+
+      # Commit downloaded game art once; subsequent builds read the permanent PNGs
+      # from the repository and do not need external services.
+      - name: Save new original art into repository
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        shell: bash
+        run: |
+          git add assets/v1_bg_crystal.png assets/v1_bg_sky.png assets/v1_bg_marsh.png
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "assets: preserve original Higgsfield realm backgrounds"
+            git push origin HEAD:main
+          fi
 
       - name: Set up Java 17 before Android SDK
         uses: actions/setup-java@v4
@@ -75,7 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_VERSION_CODE=$((GITHUB_RUN_NUMBER + 1))
-          BUILD_VERSION_NAME="0.6.${GITHUB_RUN_NUMBER}"
+          BUILD_VERSION_NAME="1.0.${GITHUB_RUN_NUMBER}"
           export BUILD_VERSION_CODE BUILD_VERSION_NAME
           python3 - <<'PY'
           import os
@@ -136,6 +157,14 @@ jobs:
           grep -Fq 'PASS: adaptive HUD stays in bounds on compact, 16:9, 20:9, 4:3 and ultrawide displays' /tmp/godot-v06.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V0.6 FAILED)' /tmp/godot-v06.log; then exit 1; fi
 
+      - name: Verify v1.0 animated combat, puzzle accessibility, save migration and offline art
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v1_awakening.gd 2>&1 | tee /tmp/godot-v1.log
+          grep -Fq 'PASS: v1 offline backgrounds, animated poses, optional puzzles, rewards, exit, save migration, settings and boss telegraphs' /tmp/godot-v1.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V1 TEST FAILED)' /tmp/godot-v1.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -186,4 +215,5 @@ jobs:
             /tmp/godot-gameplay.log
             /tmp/godot-world.log
             /tmp/godot-v06.log
+            /tmp/godot-v1.log
           if-no-files-found: ignore

@@ -1,0 +1,22 @@
+{
+  "title": "Echoes of Aether v1.0: original Higgsfield-generated realm backgrounds",
+  "format": "png",
+  "credit": "Higgsfield GPT Image 2.6",
+  "sources": [
+    {
+      "name": "crystal",
+      "path": "assets/v1_bg_crystal.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_142546_408f54fc-cbce-4def-b1cc-4ce8e51d6af6.png"
+    },
+    {
+      "name": "sky",
+      "path": "assets/v1_bg_sky.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_142546_00ed457b-da6a-4b45-ab3f-4ca6312642c8.png"
+    },
+    {
+      "name": "marsh",
+      "path": "assets/v1_bg_marsh.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3LqjsrQKSBpvUfZMk2JKybtBTyj/hf_20261110_142547_def7421c-ab93-4b4c-9495-7eca284cfac1.png"
+    }
+  ]
+}

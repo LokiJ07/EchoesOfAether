@@ -1,3 +1,27 @@
+# ECHOES OF AETHER v1.0 — THE AETHER AWAKENING
+
+The **v1.0** release advances the existing offline Android game with smoother animation, interactive user interfaces, optional logic mini-games, original generated scenery, and clearer combat feedback. All four main realms, story quests, checkpoints, relics, saved progress, customizable mobile controls, and the existing package/signing identity remain intact.
+
+## What's new
+
+- **Three original Higgsfield-generated offline backgrounds:** Crystal Hollow, Celestial Highlands, Shadowfen Marsh. The artwork is prepared by CI and embedded as PNG files **inside the APK**. GitHub Actions also attempts to commit the imported artwork into `assets/` so future builds can operate without fetching it again. The original procedural environment is retained as the fallback.
+- **Animated gameplay poses:** The existing hero sprites now move with idle breathing, run bounce, jump tilt, sword attack lean, dash stretch, guard stance, healing pulse and damage recoil. Enemies have subtle movement and attack reactions; bosses show a **0.55-second visual warning** before casting projectiles.
+- **Interactive Aether Echo rune shrines:** Six optional puzzle landmarks across the connected world. At each, tap SUN, MOON or STAR in the sequence described by the clue. Wrong answers simply reset the puzzle sequence—**no damage, items lost, or quest penalties**. Players can ask for the next rune hint or leave instantly, returning to the same place. First-time completion gives **55 coins and +6 permanent max HP**, saves instantly and unlocks a short lore memory. Each shrine pays out only once.
+- **Premium UI/UX:** Redesigned animated main menu, refined touch-friendly buttons, animated interface accents, improved dialogue panels, rune puzzle modal with explicit **Leave Puzzle**, and a journal counter for completed optional challenges.
+- **Graphics & accessibility controls:** Settings includes Low, Balanced, High and **Reduce Motion**, saved separately from gameplay progress. Low reduces particles and optional full-resolution backgrounds; all modes retain playable geometry and mechanics.
+- **No hindrance to play:** Puzzles are opt-in and never block the main story or portal fast-travel. Background imagery is visual only; no collisions are added. During puzzles the game world is paused, with clear Hint and Exit buttons. Responsive touch controls and user HUD placement remain available.
+- **Safe updates and migration:** Preserve Android package `org.lokij.echoesofaether`, stable debug signing certificate, automatic increasing version codes, saved adventure, and separately saved HUD settings. Previous v0.6 save files load with unopened optional shrines.
+
+## How to install on Android
+
+Open the latest **successful** Actions workflow and download **EchoesOfAether-Android-debug-APK**. Extract and install the APK **over** your existing game. Do not uninstall your current installation if you wish to preserve local game progress. The CI verifies consistent signing certificate, package ID and increasing versionCode. No network connection is needed to play the resulting APK.
+
+## GitHub build checks
+
+CI validates: original Godot game and story smoke tests; expanded worlds and portal travel; v0.6 HUD dragging, combat, save migration and screen ratios; plus new v1 puzzle rewards/exit, animation poses, legacy save loading, graphics preferences, telegraphed bosses and all three offline realm backgrounds. It then exports, verifies signing, and uploads the Android debug APK.
+
+---
+
 # Echoes of Aether v0.6 — CONTROL FORGE & GUARDIAN MASTERY
 
 **A major, playable upgrade** over the v0.3 Worlds Beyond expansion. The four-realm story, portal network, old quests, enemies, relics and map remain unchanged. Existing Android app installs and save files remain compatible.

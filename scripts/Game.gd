@@ -7,6 +7,27 @@ const FLOOR_Y := 500.0
 const GRAVITY := 1250.0
 const SKILL_COOLDOWN := 2.25
 const CACHE_LOCATIONS = [690.0, 1940.0, 3400.0, 4560.0, 5350.0, 6780.0]
+# Optional lore puzzles: no required progress is gated behind any puzzle.
+const ECHO_SHRINES = [1840.0, 4040.0, 5780.0, 9830.0, 11780.0, 14250.0]
+const RUNE_NAMES = ["SUN", "MOON", "STAR"]
+const ECHO_PATTERNS = [[0, 1, 2], [2, 0, 1], [1, 2, 0], [0, 2, 1], [2, 1, 0], [1, 0, 2]]
+const ECHO_HINTS = [
+	"DAWN WARMS THE SKY, NIGHT RETURNS, THEN THE STAR GUIDES.",
+	"THE STAR CALLS, THE SUN ANSWERS, THE MOON RESTS.",
+	"THE MOON REFLECTS, THE STAR SPARKS, THE SUN WAKES.",
+	"THE SUN RISES, A STAR SHINES, THEN THE MOON FOLLOWS.",
+	"THE STAR FALLS, THE MOON WATCHES, THE SUN BRINGS HOPE.",
+	"THE MOON OPENS, THE SUN BLAZES, THE STAR ENDS THE SONG."
+]
+const ECHO_LORE = [
+	"Moonhaven grew around the last living ember of the Aether.",
+	"Whisperwood remembers every promise made beneath its leaves.",
+	"The Ruins were designed to hold a fallen constellation.",
+	"Crystals sing when their ancient keeper hears the truth.",
+	"The Highlands carry songs between forgotten kingdoms.",
+	"Shadowfen's darkness can shelter the smallest light."
+]
+const VISUALS_FILE = "user://aether_visuals.json"
 const PORTAL_NAMES = ["MOONHAVEN", "CRYSTAL HOLLOW", "CELESTIAL HIGHLANDS", "SHADOWFEN MARSH"]
 const PORTAL_LOCATIONS = [1720.0, 8660.0, 11050.0, 13240.0]
 const PORTAL_ARRIVALS = [1635.0, 8800.0, 11190.0, 13380.0]
@@ -97,6 +118,18 @@ var combo_stage := 0
 var combo_timer := 0.0
 var total_kills := 0
 var mastery_rewards: Array = []
+# v1.0 visual and exploration enhancements.
+var awakened_shrines: Array = []
+var puzzle_index := -1
+var puzzle_progress := 0
+var puzzle_feedback := "TAP THE RUNES IN CLUE ORDER."
+var graphics_quality := 1
+var reduced_motion := false
+var realm_backdrops: Dictionary = {}
+var healing_glow := 0.0
+var level_up_glow := 0.0
+var hero_impact := 0.0
+var menu_drift := 0.0
 var screen_shake := 0.0
 var boss_alert := ""
 var joystick_touch := -1
@@ -113,7 +146,9 @@ var rng = RandomNumberGenerator.new()
 func _ready() -> void:
 	font = ThemeDB.fallback_font
 	rng.seed = 20261110
+	load_visual_preferences()
 	create_world()
+	load_realm_backdrops()
 	camera.position = Vector2(575, 316)
 	camera.make_current()
 	music = AudioStreamPlayer.new()
@@ -128,6 +163,37 @@ func _ready() -> void:
 	sfx.volume_db = -11.0
 	add_child(sfx)
 	update_camera()
+
+func load_realm_backdrops() -> void:
+	# Downloaded by GitHub CI during asset preparation; the game remains fully offline.
+	# Missing generated art falls back to original procedural scenery.
+	for backdrop_id in ["crystal", "sky", "marsh"]:
+		var path: String = "res://assets/v1_bg_%s.png" % backdrop_id
+		if ResourceLoader.exists(path):
+			var texture: Resource = load(path)
+			if texture is Texture2D:
+				realm_backdrops[backdrop_id] = texture
+
+func draw_realm_backdrop(region: int, region_start: float, region_end: float, left: float, right: float) -> void:
+	if graphics_quality == 0 or region < 3 or region > 5:
+		return
+	var realm_id: String = ["crystal", "sky", "marsh"][region - 3]
+	if not realm_backdrops.has(realm_id):
+		return
+	var texture: Texture2D = realm_backdrops[realm_id]
+	var frame_width := 1230.0
+	var frame_height := 680.0
+	var count: int = int(ceilf((region_end - region_start) / frame_width))
+	for tile in range(count):
+		var x: float = region_start + float(tile) * frame_width
+		var width: float = minf(frame_width, region_end - x)
+		if x > right or x + width < left:
+			continue
+		var src_width: float = float(texture.get_width()) * (width / frame_width)
+		draw_texture_rect_region(texture,
+			Rect2(x, -133.0, width, frame_height),
+			Rect2(0.0, 0.0, src_width, float(texture.get_height())),
+			Color(1.0, 1.0, 1.0, 0.55 if graphics_quality == 2 else 0.42))
 
 func play_sfx(name: String) -> void:
 	if not sound_on: return
@@ -209,7 +275,7 @@ func add_enemy(kind: String, x: float) -> void:
 		"crystal_titan": 85.0, "sky_herald": 115.0, "marsh_guardian": 100.0}[kind]
 	enemies.append({"type": kind, "x": x, "origin": x, "y": FLOOR_Y, "hp": life, "max_hp": life,
 		"speed": walk, "dir": -1, "cooldown": rng.randf_range(0.5, 2.0), "stun": 0.0,
-		"phase": 1, "state": "patrol", "attack_anim": 0.0, "seed_drop": kind == "slime"})
+		"phase": 1, "state": "patrol", "attack_anim": 0.0, "windup": 0.0, "seed_drop": kind == "slime"})
 
 func ground_y(x: float) -> float:
 	for pit in traps:
@@ -219,6 +285,10 @@ func ground_y(x: float) -> float:
 
 func _physics_process(dt: float) -> void:
 	elapsed += dt
+	menu_drift += dt
+	healing_glow = maxf(0.0, healing_glow - dt)
+	level_up_glow = maxf(0.0, level_up_glow - dt)
+	hero_impact = maxf(0.0, hero_impact - dt)
 	if message_time > 0.0:
 		message_time -= dt
 	invincible = maxf(0.0, invincible - dt)
@@ -431,6 +501,7 @@ func damage_player(amount: float) -> void:
 	if invincible > 0.0: return
 	var actual = maxf(1.0, amount - float(armor_level - 1) * 3.0)
 	hp -= actual
+	hero_impact = 0.3
 	add_float_text(player_pos + Vector2(0, -80), "-%d HP" % int(actual), Color("ff9b96"))
 	invincible = 0.65
 	screen_shake = 0.17
@@ -448,6 +519,7 @@ func heal() -> void:
 	potions -= 1
 	hp = minf(max_hp, hp + 55.0)
 	show_message("+55 HP", 1.4)
+	healing_glow = 0.88
 	spawn_dust(player_pos, Color(0.42, 1, 0.55), 10)
 	play_sfx("heal")
 
@@ -593,12 +665,18 @@ func gain_exp(value: int) -> void:
 		max_stamina += 4.0
 		stamina = max_stamina
 		threshold = level * 55
+		level_up_glow = 1.35
+		spawn_dust(player_pos + Vector2(0, -40), Color("f3dfa1"), 18)
 		show_message("LEVEL UP! LV %d" % level, 2.5)
 
 func update_enemies(dt: float) -> void:
 	for e in enemies:
 		if e["hp"] <= 0.0: continue
 		var kind: String = e["type"]
+		if BOSS_TYPES.has(kind) and float(e.get("windup", 0.0)) > 0.0:
+			e["windup"] = maxf(0.0, float(e["windup"]) - dt)
+			if e["windup"] <= 0.0:
+				boss_attack(e)
 		if kind == "boss" and (quest_stage < 2 or player_pos.x < 7210.0): continue
 		if kind != "boss" and BOSS_TYPES.has(kind) and player_pos.x < float(e["origin"]) - 660.0: continue
 		e["stun"] = maxf(0.0, e["stun"] - dt)
@@ -610,8 +688,10 @@ func update_enemies(dt: float) -> void:
 		if BOSS_TYPES.has(kind):
 			if e["hp"] < e["max_hp"] * 0.48:
 				e["phase"] = 2
-			if active and e["cooldown"] <= 0.0:
-				boss_attack(e)
+			if active and e["cooldown"] <= 0.0 and e["windup"] <= 0.0:
+				# Visible telegraph gives mobile players time to guard or dash.
+				e["windup"] = 0.55
+				e["cooldown"] = 3.5 if e["phase"] == 1 else 2.8
 			if active and e["stun"] <= 0.0:
 				e["x"] += signf(distance) * (115.0 if e["phase"] == 2 else 67.0) * dt
 			if abs_distance < 67.0 and e["cooldown"] < 1.1:
@@ -733,6 +813,8 @@ func update_particles(dt: float) -> void:
 			particles.remove_at(i)
 
 func spawn_dust(pos: Vector2, tint: Color, amount: int = 7) -> void:
+	if graphics_quality == 0: amount = mini(amount, 4)
+	elif graphics_quality == 1: amount = mini(amount, 13)
 	for i in amount:
 		particles.append({"pos": pos, "vel": Vector2(rng.randf_range(-115, 115), rng.randf_range(-180, 0)), "life": rng.randf_range(0.26, 0.55), "color": tint})
 
@@ -818,8 +900,132 @@ func expansion_quest_label() -> String:
 		return "NEW REALMS: Explore Shadowfen and defeat its Guardian"
 	return "NEW REALMS: All three worlds restored! Explore freely"
 
+func nearby_shrine_index() -> int:
+	for i in range(ECHO_SHRINES.size()):
+		if not awakened_shrines.has(i) and absf(player_pos.x - ECHO_SHRINES[i]) < 92.0 and absf(player_pos.y - FLOOR_Y) < 135.0:
+			return i
+	return -1
+
+func open_echo_puzzle(index: int) -> bool:
+	if state != "playing" or index < 0 or index >= ECHO_SHRINES.size() or awakened_shrines.has(index):
+		return false
+	if absf(player_pos.x - ECHO_SHRINES[index]) >= 100.0:
+		return false
+	puzzle_index = index
+	puzzle_progress = 0
+	puzzle_feedback = "FOLLOW THE CLUE. WRONG ANSWERS HAVE NO PENALTY."
+	state = "puzzle"
+	touch_axis = 0.0
+	joystick_touch = -1
+	hold_attack = false
+	attack_touch.clear()
+	play_sfx("loot")
+	return true
+
+func leave_echo_puzzle() -> void:
+	# Optional challenges can be exited instantly, without changing game progress.
+	puzzle_index = -1
+	puzzle_progress = 0
+	state = "playing"
+	puzzle_feedback = ""
+	update_camera()
+
+func choose_echo_rune(choice: int) -> bool:
+	if state != "puzzle" or puzzle_index < 0 or choice < 0 or choice > 2:
+		return false
+	var sequence: Array = ECHO_PATTERNS[puzzle_index]
+	if choice != int(sequence[puzzle_progress]):
+		puzzle_progress = 0
+		puzzle_feedback = "NOT QUITE. TRY THE CLUE AGAIN - NO PENALTY."
+		play_sfx("hit")
+		return false
+	puzzle_progress += 1
+	play_sfx("loot")
+	if puzzle_progress < 3:
+		puzzle_feedback = "RUNE %d / 3 CORRECT!" % puzzle_progress
+		return true
+	var solved_index: int = puzzle_index
+	if not awakened_shrines.has(solved_index):
+		awakened_shrines.append(solved_index)
+		coins += 55
+		max_hp += 6.0
+		hp = max_hp
+		level_up_glow = 1.3
+		spawn_dust(Vector2(ECHO_SHRINES[solved_index], FLOOR_Y - 90.0), Color("c5fff2"), 24)
+		show_message("ECHO AWAKENED! +55 COINS, +6 MAX HP", 3.3)
+		save_game()
+	puzzle_index = -1
+	puzzle_progress = 0
+	state = "playing"
+	dialogue = "AETHER MEMORY: " + str(ECHO_LORE[solved_index])
+	play_sfx("win")
+	return true
+
+func save_visual_preferences() -> void:
+	var file := FileAccess.open(VISUALS_FILE, FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify({"quality": graphics_quality, "reduce_motion": reduced_motion}))
+		file.close()
+
+func load_visual_preferences() -> void:
+	if not FileAccess.file_exists(VISUALS_FILE):
+		return
+	var file := FileAccess.open(VISUALS_FILE, FileAccess.READ)
+	if file == null:
+		return
+	var data = JSON.parse_string(file.get_as_text())
+	file.close()
+	if data is Dictionary:
+		graphics_quality = clampi(int(data.get("quality", 1)), 0, 2)
+		reduced_motion = bool(data.get("reduce_motion", false))
+
+func cycle_graphics_quality() -> void:
+	graphics_quality = (graphics_quality + 1) % 3
+	save_visual_preferences()
+	show_message("GRAPHICS: %s" % ["LOW", "BALANCED", "HIGH"][graphics_quality], 2.0)
+
+func toggle_reduced_motion() -> void:
+	reduced_motion = not reduced_motion
+	save_visual_preferences()
+
+func hero_animation_pose() -> String:
+	if state == "defeat" or hp <= 0.0: return "defeat"
+	if hero_impact > 0.0: return "hit"
+	if dash_timer > 0.0: return "dash"
+	if guard_window > 0.0: return "guard"
+	if slash_timer > 0.0: return "attack"
+	if healing_glow > 0.0: return "heal"
+	if not on_ground: return "jump"
+	if absf(velocity.x) > 45.0: return "run"
+	return "idle"
+
+func hero_animation_params() -> Dictionary:
+	# Real-time procedural poses reuse existing original hero pixel art.
+	var pose: String = hero_animation_pose()
+	var offset := Vector2.ZERO
+	var angle := 0.0
+	var squash := Vector2.ONE
+	if reduced_motion: return {"pose": pose, "offset": offset, "angle": angle, "squash": squash}
+	match pose:
+		"idle":
+			offset.y = sin(elapsed * 2.8) * 2.3
+			angle = sin(elapsed * 1.2) * 0.02
+		"run":
+			offset.y = -absf(sin(elapsed * 13.0)) * 6.0
+			angle = sin(elapsed * 13.0) * 0.05
+		"attack":
+			angle = -0.23 if combo_stage == 3 else 0.13
+			offset.x = 7.0 * float(facing)
+		"dash": squash = Vector2(1.32, 0.86)
+		"guard": squash = Vector2(0.89, 1.08)
+		"heal": offset.y = -3.0 * sin(elapsed * 10.0)
+		"hit": angle = sin(elapsed * 35.0) * 0.10
+		"jump": angle = clampf(velocity.y / 2600.0, -0.16, 0.16)
+	return {"pose": pose, "offset": offset, "angle": angle, "squash": squash}
+
 func nearby_npc() -> String:
 	if nearby_portal_index() >= 0: return "portal"
+	if nearby_shrine_index() >= 0: return "shrine"
 	if nearby_cache_index() >= 0: return "cache"
 	if absf(player_pos.x - 415.0) < 105.0: return "mira"
 	if absf(player_pos.x - 1030.0) < 105.0: return "merchant"
@@ -829,6 +1035,9 @@ func nearby_npc() -> String:
 
 func interact() -> void:
 	if state != "playing": return
+	if nearby_shrine_index() >= 0:
+		open_echo_puzzle(nearby_shrine_index())
+		return
 	if nearby_portal_index() >= 0:
 		var index: int = nearby_portal_index()
 		if index > 0 and not portal_unlocked[index]:
@@ -898,6 +1107,9 @@ func start_new_game() -> void:
 	combo_timer = 0.0
 	total_kills = 0
 	mastery_rewards.clear()
+	awakened_shrines.clear()
+	puzzle_index = -1
+	puzzle_progress = 0
 	dash_cooldown = 0.0
 	dash_timer = 0.0
 	attack_timer = 0.0
@@ -975,8 +1187,9 @@ func save_game() -> void:
 		"hunt_moths": hunted_moths, "hunt_sentinels": hunted_sentinels,
 		"claimed_hunts": claimed_hunts,
 		"portal_unlocked": portal_unlocked, "world_bosses_cleared": world_bosses_cleared,
-		"expansion_completed": expansion_completed, "save_version": 6,
-		"total_kills": total_kills, "mastery_rewards": mastery_rewards}
+		"expansion_completed": expansion_completed, "save_version": 10,
+		"total_kills": total_kills, "mastery_rewards": mastery_rewards,
+		"awakened_shrines": awakened_shrines}
 	var file = FileAccess.open("user://aether_save.json", FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(values))
@@ -1034,6 +1247,15 @@ func load_game() -> bool:
 	# JSON numeric arrays can contain floats; normalize milestone IDs to integers
 	# before using Array.has(), so the reward never repeats after reopening the app.
 	mastery_rewards.clear()
+	awakened_shrines.clear()
+	var shrine_data = data.get("awakened_shrines", [])
+	if shrine_data is Array:
+		for item in shrine_data:
+			var idx: int = int(item)
+			if idx >= 0 and idx < ECHO_SHRINES.size() and not awakened_shrines.has(idx):
+				awakened_shrines.append(idx)
+	puzzle_index = -1
+	puzzle_progress = 0
 	var saved_rewards = data.get("mastery_rewards", [])
 	if saved_rewards is Array:
 		for item in saved_rewards:
@@ -1066,6 +1288,7 @@ func _input(event: InputEvent) -> void:
 				hud.editor_touch_release(hud.editor_touch)
 				hud.save_control_layout()
 				state = "settings"
+			elif state == "puzzle": leave_echo_puzzle()
 			elif state in ["pause", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "realm_victory"]: state = "playing"
 		elif state == "playing":
 			match key:
@@ -1179,6 +1402,7 @@ func _draw() -> void:
 		var sky: Color = [Color("274b64"), Color("203c51"), Color("252a48"),
 			Color("152e45"), Color("477494"), Color("222e43")][region]
 		draw_rect(Rect2(x0, -250, x1 - x0, 780), sky)
+		draw_realm_backdrop(region, x0, x1, left, right)
 		for band in range(14):
 			var strength = 0.008 + 0.004 * float(band)
 			draw_rect(Rect2(x0, -220 + float(band) * 45.0, x1 - x0, 46), Color(0.6, 0.78, 0.95, strength))
@@ -1188,11 +1412,11 @@ func _draw() -> void:
 			var mountain = PackedVector2Array([Vector2(cx - 145, 440), Vector2(cx, 245 + sin(float(i) * 2.5) * 55), Vector2(cx + 170, 440)])
 			draw_colored_polygon(mountain, Color(0.09, 0.17, 0.23, 0.65) if region < 2 else Color(0.15, 0.13, 0.24, 0.75))
 	# Subtle dusk/night tint across each biome, without extra mobile shaders.
-	var twilight: float = 0.035 + 0.07 * (0.5 + 0.5 * sin(elapsed * 0.02))
+	var twilight: float = 0.035 + 0.07 * (0.5 + 0.5 * sin(elapsed * (0.004 if reduced_motion else 0.02)))
 	if right >= 0.0:
 		draw_rect(Rect2(maxf(0.0, left), -180, minf(WORLD_WIDTH, right + 20.0) - maxf(0.0, left), 690), Color(0.08, 0.03, 0.19, twilight))
 	# Stars and fireflies are purposely deterministic in space and animated only in brightness.
-	for i in range(128):
+	for i in range(38 if graphics_quality == 0 else (88 if graphics_quality == 1 else 160)):
 		var sx = float(i * 167 % 15783)
 		if sx < left or sx > right: continue
 		var sy = -80.0 + float((i * 137) % 325)
@@ -1290,6 +1514,18 @@ func _draw() -> void:
 	if left < 6200 and right > 6080:
 		draw_texture_rect(PORTAL, Rect2(6078, 286, 136, 215), false, Color(0.9, 0.48, 0.6, 1) if quest_stage < 2 else Color(0.42, 1, 0.76, 0.93))
 		draw_label(Vector2(6085, 271), "AETHER GATE", 15, Color("f9e49e"))
+	# Optional Aether Echo rune shrines: visually clear, deliberately separate from portals.
+	for i in range(ECHO_SHRINES.size()):
+		var sx: float = ECHO_SHRINES[i]
+		if sx < left - 100.0 or sx > right + 100.0: continue
+		var solved: bool = awakened_shrines.has(i)
+		var flicker: float = 0.0 if reduced_motion else sin(elapsed * 2.3 + float(i)) * 3.0
+		var glow: Color = Color("a3b6c2") if solved else Color("8ef5e2")
+		draw_rect(Rect2(sx - 32, FLOOR_Y - 75, 64, 75), Color("263a4e"))
+		draw_rect(Rect2(sx - 38, FLOOR_Y - 75, 76, 11), Color("668a98"))
+		draw_circle(Vector2(sx, FLOOR_Y - 96 - flicker), 26.0, Color(glow.r, glow.g, glow.b, 0.17))
+		draw_colored_polygon(PackedVector2Array([Vector2(sx, FLOOR_Y - 123 - flicker), Vector2(sx - 18, FLOOR_Y - 96 - flicker), Vector2(sx, FLOOR_Y - 70 - flicker), Vector2(sx + 18, FLOOR_Y - 96 - flicker)]), glow)
+		draw_label(Vector2(sx - 30, FLOOR_Y - 140), "ECHO RESTORED" if solved else "RUNE PUZZLE", 13, Color("ddf8f0"))
 	# Functional portal network: art changes when each destination is unlocked.
 	for i in range(PORTAL_LOCATIONS.size()):
 		var gate_x: float = PORTAL_LOCATIONS[i]
@@ -1320,9 +1556,15 @@ func _draw() -> void:
 			"bog_slime", "bog_wisp", "marsh_guardian": tint = Color("b3edb3")
 		if e["stun"] > 0: tint = Color("ff8e89")
 		if BOSS_TYPES.has(e["type"]):
+			if float(e.get("windup", 0.0)) > 0.0:
+				var windup_fraction: float = clampf(float(e["windup"]) / 0.55, 0.0, 1.0)
+				draw_arc(Vector2(e["x"], e["y"] - height * 0.5), width * 0.74, -PI * 0.5, -PI * 0.5 + TAU * (1.0 - windup_fraction), 46, Color("ffc08c"), 6.0, true)
+				draw_label(Vector2(e["x"] - 35, e["y"] - height - 50), "DODGE!", 18, Color("ffcb91"))
 			draw_circle(Vector2(e["x"], e["y"] - height * 0.5), width * 0.63, Color(tint.r, tint.g, tint.b, 0.12))
 			draw_label(Vector2(e["x"] - 75, e["y"] - height - 25), boss_display_name(e["type"]), 14, tint)
-		draw_texture_rect(texture, Rect2(e["x"] - width / 2.0, e["y"] - height, width, height), false, tint)
+		var bob: float = 0.0 if reduced_motion else sin(elapsed * (3.0 if BOSS_TYPES.has(e["type"]) else 5.0) + float(e["origin"])) * (3.0 if BOSS_TYPES.has(e["type"]) else 2.0)
+		if e["attack_anim"] > 0.0: bob -= 7.0
+		draw_texture_rect(texture, Rect2(e["x"] - width / 2.0, e["y"] - height + bob, width, height), false, tint)
 		if e["hp"] < e["max_hp"] or BOSS_TYPES.has(e["type"]):
 			var fraction: float = clampf(e["hp"] / e["max_hp"], 0.0, 1.0)
 			draw_rect(Rect2(e["x"] - width / 2.0, e["y"] - height - 14, width, 6), Color("1c1727"))
@@ -1345,19 +1587,32 @@ func _draw() -> void:
 	# Hero sprite, weapon, dash trails, and spell effects.
 	if state != "main":
 		var hero_tint = Color(1, 1, 1, 0.43) if invincible > 0.0 and int(elapsed * 15) % 2 == 0 else Color.WHITE
-		var art = HERO_JUMP if not on_ground else (HERO_RUN if absf(velocity.x) > 45.0 and int(elapsed * 10) % 2 == 0 else HERO_IDLE)
+		var pose_data: Dictionary = hero_animation_params()
+		var pose: String = pose_data["pose"]
+		var art: Texture2D = HERO_JUMP if pose == "jump" else (HERO_RUN if pose in ["run", "dash", "attack"] else HERO_IDLE)
+		if pose == "hit": hero_tint = Color("ffb7ae")
+		if pose == "heal": hero_tint = Color("b2ffcc")
+		if pose == "guard": hero_tint = Color("c0e8ff")
 		# Mirroring the draw transform makes the character face the travel direction.
 		if dash_timer > 0.0:
 			draw_set_transform(player_pos + Vector2(-float(facing) * 40.0, 0), 0.0, hero_sprite_scale())
 			draw_texture_rect(art, Rect2(-29, -78, 58, 78), false, Color(0.4, 0.9, 1, 0.26))
-		draw_set_transform(player_pos, 0.0, hero_sprite_scale())
-		draw_texture_rect(art, Rect2(-29, -78 + (sin(elapsed * 9) if on_ground else 0), 58, 78), false, hero_tint)
+		var pose_scale: Vector2 = pose_data["squash"]
+		pose_scale.x *= float(facing)
+		draw_set_transform(player_pos + pose_data["offset"], float(pose_data["angle"]) * float(facing), pose_scale)
+		draw_texture_rect(art, Rect2(-29, -78, 58, 78), false, hero_tint)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if guard_window > 0.0:
+			draw_arc(player_pos + Vector2(0, -42), 56.0, 0.0, TAU, 44, Color(0.47, 0.91, 1.0, 0.85), 4.0, true)
+		if healing_glow > 0.0:
+			draw_circle(player_pos + Vector2(0, -42), 49.0 * healing_glow, Color(0.4, 1.0, 0.5, 0.15))
+		if level_up_glow > 0.0:
+			draw_arc(player_pos + Vector2(0, -45), 65.0 + (1.35 - level_up_glow) * 30.0, 0.0, TAU, 42, Color(1.0, 0.86, 0.5, level_up_glow * 0.5), 3.0, true)
 		if slash_timer > 0.0:
 			var slash_center = player_pos + Vector2(float(facing) * 22.0, -37.0)
 			draw_arc(slash_center, 54.0, -1.1 if facing > 0 else 2.05, 1.25 if facing > 0 else 4.35, 22, Color("b8f6ff"), 7.0, true)
 		if nearby_npc() != "" and dialogue == "" and state == "playing":
-			var verb := "TRAVEL" if nearby_npc() == "portal" else ("OPEN" if nearby_npc() == "cache" else ("TRAIN" if nearby_npc() == "scout" else ("SHOP" if nearby_npc() == "merchant" else "TALK")))
+			var verb := "SOLVE" if nearby_npc() == "shrine" else ("TRAVEL" if nearby_npc() == "portal" else ("OPEN" if nearby_npc() == "cache" else ("TRAIN" if nearby_npc() == "scout" else ("SHOP" if nearby_npc() == "merchant" else "TALK"))))
 			draw_label(player_pos + Vector2(-45, -92), "TAP %s / E" % verb, 15, Color("ffefbd"))
 	for ft in floating_text:
 		if absf(ft["pos"].x - camera_x) < 700.0:

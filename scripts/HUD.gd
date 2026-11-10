@@ -233,6 +233,16 @@ func handle_menu_press(pos: Vector2) -> bool:
 			"hud_fade": change_control_opacity(-0.1)
 			"hud_bright": change_control_opacity(0.1)
 			"hud_reset": reset_control_layout()
+			"graphics": game.cycle_graphics_quality()
+			"reduce_motion": game.toggle_reduced_motion()
+			"puzzle_sun": game.choose_echo_rune(0)
+			"puzzle_moon": game.choose_echo_rune(1)
+			"puzzle_star": game.choose_echo_rune(2)
+			"puzzle_hint":
+				if game.puzzle_index >= 0:
+					var pattern: Array = game.ECHO_PATTERNS[game.puzzle_index]
+					game.puzzle_feedback = "NEXT RUNE: " + str(game.RUNE_NAMES[int(pattern[game.puzzle_progress])])
+			"puzzle_leave": game.leave_echo_puzzle()
 			"hud_done":
 				editor_key = ""
 				editor_touch = -1
@@ -269,8 +279,12 @@ func small_button(rect: Rect2, label: String, code: String, accent: Color = Colo
 	menu_buttons.append({"rect": rect, "key": code})
 
 func menu_button(rect: Rect2, label: String, code: String, accent: Color = Color("85dec9")) -> void:
-	box(rect, Color("1a3343"), accent, 2)
-	centered(rect.position.x + rect.size.x / 2.0, rect.position.y + rect.size.y * 0.68, label, 21, Color("f5efcf"))
+	# Animated trims and bold touch targets, but no intrusive gameplay overlays.
+	var pulse: float = 0.5 + 0.5 * sin(game.elapsed * 2.8 + float(label.length()))
+	box(rect, Color("132c3d"), Color(accent.r, accent.g, accent.b, 0.67 + pulse * 0.23), 2.0)
+	draw_rect(Rect2(rect.position + Vector2(8.0, 7.0), Vector2(4.0, rect.size.y - 14.0)), accent)
+	draw_rect(Rect2(rect.position + Vector2(19.0, 8.0), Vector2(rect.size.x - 36.0, 1.0)), Color(accent.r, accent.g, accent.b, 0.24))
+	centered(rect.position.x + rect.size.x / 2.0, rect.position.y + rect.size.y * 0.68, label, 19, Color("f5efcf"))
 	menu_buttons.append({"rect": rect, "key": code})
 
 func control_button(at: Vector2, radius: float, letter: String, label: String, tint: Color) -> void:
@@ -339,6 +353,9 @@ func _draw() -> void:
 	var h = size.y
 	if game.state == "main":
 		draw_main_menu(w, h)
+		return
+	if game.state == "puzzle":
+		draw_echo_puzzle(w, h)
 		return
 	if game.state in ["playing", "hud_edit", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "pause", "settings", "victory", "realm_victory", "defeat"]:
 		draw_game_status(w, h)
@@ -432,7 +449,7 @@ func draw_mobile_controls(w: float, h: float) -> void:
 	draw_guard_button(c["guard"])
 	control_button(c["potion"], 37, "+", "POTION %d" % game.potions, Color("f5a2a2"))
 	if game.nearby_npc() != "" or game.state == "hud_edit":
-		var label := "OPEN" if game.nearby_npc() == "cache" else ("TRAIN" if game.nearby_npc() == "scout" else ("SHOP" if game.nearby_npc() == "merchant" else "TALK"))
+		var label := "SOLVE" if game.nearby_npc() == "shrine" else ("OPEN" if game.nearby_npc() == "cache" else ("TRAIN" if game.nearby_npc() == "scout" else ("SHOP" if game.nearby_npc() == "merchant" else "TALK")))
 		control_button(c["interact"], 40, "!", label, Color("f3db98"))
 
 func modal(w: float, h: float, heading: String, width: float = 650.0, height: float = 470.0) -> Rect2:
@@ -444,19 +461,36 @@ func modal(w: float, h: float, heading: String, width: float = 650.0, height: fl
 	return r
 
 func draw_main_menu(w: float, h: float) -> void:
-	draw_rect(Rect2(0, 0, w, h), Color(0.01, 0.08, 0.15, 0.62))
-	var cx = w * 0.5
-	centered(cx, h * 0.215, "E C H O E S   O F   A E T H E R", 37, Color("f4deb5"))
-	centered(cx, h * 0.28, "THE LAST LIGHT OF MOONHAVEN", 18, Color("96dfd3"))
-	box(Rect2(cx - 202, h * 0.34, 404, 285), Color("152b3a"), Color("77c4b9"), 2.0)
-	menu_button(Rect2(cx - 171, h * 0.38, 342, 56), "NEW ADVENTURE", "new")
-	menu_button(Rect2(cx - 171, h * 0.49, 342, 56), "CONTINUE JOURNEY", "continue", Color("9dacec"))
-	menu_button(Rect2(cx - 171, h * 0.60, 342, 56), "SETTINGS", "settings", Color("bca7c8"))
-	centered(cx, h - 19, "OFFLINE  |  WORLDS BEYOND EXPANSION  |  v0.3", 14, Color("a4c3bf"))
+	draw_rect(Rect2(0, 0, w, h), Color(0.01, 0.06, 0.13, 0.78))
+	var cx: float = w * 0.5
+	# Celestial particles; lightweight screen-space animation.
+	for i in range(24):
+		var px: float = fposmod(float(i) * 211.0 + 24.0, w)
+		var py: float = fposmod(float(i * 97) + game.elapsed * (6.0 if game.reduced_motion else 21.0), h)
+		draw_circle(Vector2(px, h - py), 2.0 if i % 3 != 0 else 3.2, Color(0.61, 0.96, 1.0, 0.36))
+	var symbol_y: float = h * 0.155
+	draw_arc(Vector2(cx, symbol_y), 44.0, -1.1, 4.1, 38, Color("9bd8d4"), 3.0, true)
+	draw_colored_polygon(PackedVector2Array([Vector2(cx, symbol_y - 20.0), Vector2(cx - 16.0, symbol_y + 5.0),
+		Vector2(cx, symbol_y + 25.0), Vector2(cx + 16.0, symbol_y + 5.0)]), Color("e4d4a6"))
+	centered(cx, h * 0.265, "E C H O E S   O F   A E T H E R", 31, Color("f8e5b5"))
+	centered(cx, h * 0.31, "THE AETHER AWAKENING", 17, Color("a8f2e5"))
+	var panel_w: float = minf(480.0, w - 70.0)
+	var panel_h: float = minf(275.0, h * 0.52)
+	var top: float = h * 0.345
+	box(Rect2(cx - panel_w * 0.5, top, panel_w, panel_h), Color(0.04, 0.13, 0.21, 0.91), Color("78b4ae"), 3.0)
+	var button_w: float = panel_w - 50.0
+	var button_h: float = minf(59.0, (panel_h - 46.0) / 3.6)
+	var gap: float = (panel_h - 35.0 - button_h * 3.0) / 3.0
+	menu_button(Rect2(cx - button_w * 0.5, top + 20.0, button_w, button_h), "NEW ADVENTURE", "new")
+	menu_button(Rect2(cx - button_w * 0.5, top + 20.0 + button_h + gap, button_w, button_h), "CONTINUE JOURNEY", "continue", Color("9daaea"))
+	menu_button(Rect2(cx - button_w * 0.5, top + 20.0 + (button_h + gap) * 2.0, button_w, button_h), "SETTINGS", "settings", Color("c9adce"))
+	centered(cx, h - 17.0, "100% OFFLINE   •   FOUR REALMS   •   v1.0", 13, Color("b4e0d9"))
 
 func draw_dialogue(w: float, h: float) -> void:
-	var r = Rect2(w * 0.16, h * 0.70, w * 0.68, h * 0.23)
-	box(r, Color("152e42"), Color("deb875"), 2.5)
+	var r = Rect2(w * 0.14, h * 0.68, w * 0.72, maxf(155.0, h * 0.25))
+	box(r, Color("102b3b"), Color("e0ba79"), 2.7)
+	draw_rect(Rect2(r.position + Vector2(12, 10), Vector2(r.size.x - 24, 3)), Color("78d1c5"))
+	draw_circle(r.position + Vector2(28, 38), 12.0, Color("dcb976"))
 	var dialogue: String = game.dialogue
 	# Wrap dialogue text to remain readable on narrow phones.
 	var words = dialogue.split(" ")
@@ -471,7 +505,7 @@ func draw_dialogue(w: float, h: float) -> void:
 	if current != "": lines.append(current)
 	for i in range(mini(lines.size(), 4)):
 		text(r.position + Vector2(26, 38 + i * 25), lines[i], 19, Color("fff4d2"))
-	text(r.position + Vector2(r.size.x - 188, r.size.y - 13), "TAP TO CLOSE", 14, Color("9fe1d2"))
+	text(r.position + Vector2(r.size.x - 188, r.size.y - 15), "TAP TO CONTINUE", 14, Color("9fe1d2"))
 
 func draw_inventory(w: float, h: float) -> void:
 	var r = modal(w, h, "TRAVELER'S INVENTORY", 700, 520)
@@ -503,7 +537,8 @@ func draw_quests(w: float, h: float) -> void:
 	text(Vector2(x, y + 221.0), ("[DONE] " if guard_done else "[    ] ") + "Stone Sentinels: %d/2    Reward: 100 coins + 15 max HP" % mini(2, game.hunted_sentinels), 16, Color("a2ead1") if guard_done else Color("e9e2cf"))
 	text(Vector2(x, y + 269.0), "RELIC HUNT: %d / 6 caches opened  |  %d shards left" % [game.opened_caches.size(), game.relic_shards], 17, Color("f2dba4"))
 	text(Vector2(x, y + 297.0), "Find glowing chests; bring relic shards to TARO for new abilities.", 15, Color("b9dbc8"))
-	text(Vector2(x, y + 332.0), game.expansion_quest_label(), 16, Color("b4e5f4"))
+	text(Vector2(x, y + 304.0), "OPTIONAL ECHO PUZZLES: %d / 6 AWAKENED" % game.awakened_shrines.size(), 15, Color("a9eadf"))
+	text(Vector2(x, y + 336.0), game.expansion_quest_label(), 16, Color("b4e5f4"))
 	menu_button(Rect2(w / 2.0 - 139, r.end.y - 61, 278, 44), "BACK TO ADVENTURE", "resume")
 
 func draw_shop(w: float, h: float) -> void:
@@ -573,11 +608,46 @@ func draw_pause(w: float, h: float) -> void:
 	menu_button(Rect2(w / 2.0 - 177, r.position.y + 309, 354, 57), "SAVE & MAIN MENU", "main", Color("edb4a6"))
 
 func draw_settings(w: float, h: float) -> void:
-	var r = modal(w, h, "AETHER SETTINGS", 550, 470)
-	menu_button(Rect2(w / 2.0 - 190, r.position.y + 101, 380, 51), "MUSIC: %s" % ("ON" if game.music_on else "OFF"), "music")
-	menu_button(Rect2(w / 2.0 - 190, r.position.y + 166, 380, 51), "SOUND: %s" % ("ON" if game.sound_on else "OFF"), "sound")
-	menu_button(Rect2(w / 2.0 - 190, r.position.y + 231, 380, 57), "CUSTOMIZE HUD & CONTROLS", "customize", Color("a4d5ff"))
-	menu_button(Rect2(w / 2.0 - 190, r.position.y + 317, 380, 51), "BACK", "back_settings")
+	var r: Rect2 = modal(w, h, "AETHER SETTINGS", minf(570.0, w - 42.0), minf(540.0, h - 24.0))
+	var button_w: float = minf(430.0, r.size.x - 55.0)
+	var item_h: float = minf(53.0, (r.size.y - 110.0) / 6.0)
+	var top: float = r.position.y + 78.0
+	var gap: float = 10.0
+	menu_button(Rect2(w / 2.0 - button_w * 0.5, top, button_w, item_h), "MUSIC: %s" % ("ON" if game.music_on else "OFF"), "music")
+	menu_button(Rect2(w / 2.0 - button_w * 0.5, top + (item_h + gap), button_w, item_h), "SOUND: %s" % ("ON" if game.sound_on else "OFF"), "sound")
+	menu_button(Rect2(w / 2.0 - button_w * 0.5, top + (item_h + gap) * 2.0, button_w, item_h), "GRAPHICS: %s" % ["LOW", "BALANCED", "HIGH"][game.graphics_quality], "graphics", Color("97d9d5"))
+	menu_button(Rect2(w / 2.0 - button_w * 0.5, top + (item_h + gap) * 3.0, button_w, item_h), "REDUCE MOTION: %s" % ("ON" if game.reduced_motion else "OFF"), "reduce_motion", Color("c8c0e4"))
+	menu_button(Rect2(w / 2.0 - button_w * 0.5, top + (item_h + gap) * 4.0, button_w, item_h), "CUSTOMIZE HUD & CONTROLS", "customize", Color("a4d5ff"))
+	menu_button(Rect2(w / 2.0 - button_w * 0.5, top + (item_h + gap) * 5.0, button_w, item_h), "BACK", "back_settings")
+
+func draw_echo_puzzle(w: float, h: float) -> void:
+	# Paused and optional by design: it cannot block normal exploration.
+	var panel_w: float = minf(835.0, w - 52.0)
+	var panel_h: float = minf(490.0, h - 34.0)
+	var r: Rect2 = modal(w, h, "AETHER ECHO   •   RUNE SEQUENCE", panel_w, panel_h)
+	if game.puzzle_index < 0:
+		return
+	var index: int = game.puzzle_index
+	centered(w * 0.5, r.position.y + 100.0, "AN OPTIONAL CHALLENGE — LEAVE ANYTIME WITHOUT PENALTY", 15, Color("bde8d8"))
+	var clue: String = str(game.ECHO_HINTS[index])
+	centered(w * 0.5, r.position.y + 139.0, clue, 15, Color("f4dfa6"))
+	centered(w * 0.5, r.position.y + 190.0, "RUNE SEQUENCE  %d / 3" % game.puzzle_progress, 20, Color("b8f2e6"))
+	var symbols = ["SUN", "MOON", "STAR"]
+	var icons = ["*", "C", "+"]
+	var accents = [Color("f4c97b"), Color("b8c5fc"), Color("7fe8d6")]
+	var card_w: float = minf(194.0, (panel_w - 85.0) / 3.0)
+	var gap: float = minf(27.0, (panel_w - card_w * 3.0 - 50.0) * 0.5)
+	var first_x: float = w * 0.5 - card_w * 1.5 - gap
+	var card_y: float = r.position.y + 225.0
+	for i in range(3):
+		var x: float = first_x + float(i) * (card_w + gap)
+		var pulse: float = 0.5 + 0.5 * sin(game.elapsed * 3.0 + float(i))
+		draw_circle(Vector2(x + card_w * 0.5, card_y + 30.0), 26.0 + pulse * 2.0, Color(accents[i].r, accents[i].g, accents[i].b, 0.20))
+		menu_button(Rect2(x, card_y, card_w, 66.0), "%s %s" % [icons[i], symbols[i]], "puzzle_%s" % symbols[i].to_lower(), accents[i])
+	centered(w * 0.5, r.position.y + panel_h - 121.0, game.puzzle_feedback, 15, Color("9ce4db"))
+	var half_w: float = minf(205.0, (panel_w - 60.0) * 0.45)
+	menu_button(Rect2(w * 0.5 - half_w - 13.0, r.end.y - 80.0, half_w, 48.0), "SHOW NEXT HINT", "puzzle_hint", Color("bcb7ed"))
+	menu_button(Rect2(w * 0.5 + 13.0, r.end.y - 80.0, half_w, 48.0), "LEAVE PUZZLE", "puzzle_leave", Color("ebb5a6"))
 
 func draw_hud_editor(w: float, h: float) -> void:
 	# Editor displays actual mobile controls over the world; drag a control to relocate it.

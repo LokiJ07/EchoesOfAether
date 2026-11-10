@@ -23,12 +23,12 @@ workflow=(r/'.github/workflows/android-apk.yml').read_text()
 for required in ['--export-debug Android', 'actions/upload-artifact@v4', 'GODOT_VERSION: "4.5.2"', 'editor_settings-4.5.tres']:
     assert required in workflow, f"Missing CI integration: {required}"
 assert 'GITHUB_RUN_NUMBER' in workflow and 'APKSIGNER' in workflow, "Missing Android update metadata/signature checks"
-for symbol in ['func open_cache(', 'func unlock_rune(', 'func register_hunt(', 'func nearby_cache_index(', 'func update_floating_text(', 'save_version": 6']:
+for symbol in ['func open_cache(', 'func unlock_rune(', 'func register_hunt(', 'func nearby_cache_index(', 'func update_floating_text(', 'save_version": 10']:
     assert symbol in contents, f"Missing Relic Hunters gameplay: {symbol}"
 hud=(r/'scripts/HUD.gd').read_text()
 for symbol in ['func draw_trainer(', 'func draw_boss_health(', 'func draw_dash_button(']:
     assert symbol in hud, f"Missing Relic Hunters UI: {symbol}"
-for symbol in ["func guard(", "func trigger_guard_counter(", "combo_stage", "mastery_rewards", '"save_version": 6']:
+for symbol in ["func guard(", "func trigger_guard_counter(", "combo_stage", "mastery_rewards", '"save_version": 10']:
     assert symbol in contents, f"Missing v0.6 combat system: {symbol}"
 for symbol in ["func editor_touch_press(", "func editor_touch_drag(", "func editor_touch_release(", "func reset_control_layout(", "func save_control_layout(", "user://aether_controls.json", "func draw_hud_editor("]:
     assert symbol in hud, f"Missing v0.6 control customization: {symbol}"
@@ -47,3 +47,14 @@ assert Path(r/'tests/world_expansion.gd').is_file()
 assert 'tests/world_expansion.gd' in workflow
 print("PASS: World Expansion regions, fullscreen stretch, portal UI and Godot tests")
 print("PASS: referenced assets, Android CI build/export, and landscape orientation")
+
+for symbol in ["func nearby_shrine_index(", "func open_echo_puzzle(", "func choose_echo_rune(", "func leave_echo_puzzle(", "func hero_animation_params(", "func load_realm_backdrops(", "func load_visual_preferences(", '"save_version": 10']:
+    assert symbol in contents, f"Missing v1 Awakening feature: {symbol}"
+for symbol in ["func draw_echo_puzzle(", "func draw_main_menu(", "func draw_dialogue("]:
+    assert symbol in hud, f"Missing v1 interactive UI: {symbol}"
+assert (r/"tests/v1_awakening.gd").is_file(), "Missing v1 puzzle and animation regression suite"
+assert (r/"tools/fetch_v1_art.py").is_file() and (r/"assets/v1_art_manifest.json").is_file(), "Missing generated art import"
+for file in ("v1_bg_crystal.png", "v1_bg_sky.png", "v1_bg_marsh.png"):
+    assert (r/"assets"/file).is_file(), f"Missing downloaded Higgsfield art: {file}"
+assert "tests/v1_awakening.gd" in workflow and "tools/fetch_v1_art.py" in workflow, "Missing v1 Android CI integration"
+print("PASS: v1 world art, optional puzzles, responsive interactive HUD and animation source")
