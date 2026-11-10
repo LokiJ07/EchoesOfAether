@@ -5,6 +5,7 @@ extends Node2D
 const WORLD_WIDTH := 8400.0
 const FLOOR_Y := 500.0
 const GRAVITY := 1250.0
+const SKILL_COOLDOWN := 2.25
 const HERO_IDLE = preload("res://assets/hero_idle.png")
 const HERO_RUN = preload("res://assets/hero_run.png")
 const HERO_JUMP = preload("res://assets/hero_jump.png")
@@ -254,10 +255,13 @@ func attack() -> void:
 func use_skill() -> void:
 	if state != "playing" or skill_timer > 0.0 or stamina < 35.0: return
 	stamina -= 35.0
-	skill_timer = 2.25
+	skill_timer = SKILL_COOLDOWN
 	bolts.append({"pos": player_pos + Vector2(float(facing) * 28.0, -36.0), "vel": Vector2(float(facing) * 570.0, 0), "ttl": 1.8, "kind": "hero", "damage": 40.0 + float(level * 3)})
 	spawn_dust(player_pos + Vector2(0, -32), Color(0.2, 0.8, 1.0), 10)
 	play_sfx("skill")
+
+func skill_cooldown_fraction() -> float:
+	return clampf(skill_timer / SKILL_COOLDOWN, 0.0, 1.0)
 
 func damage_player(amount: float) -> void:
 	if state != "playing" or invincible > 0.0: return
@@ -298,7 +302,7 @@ func enemy_died(e: Dictionary) -> void:
 	var bonus := 120 if is_boss else (20 if e["type"] == "sentinel" else 11)
 	gain_exp(bonus)
 	loot.append({"kind": "coin", "pos": Vector2(e["x"], e["y"] - 25), "t": 0.0, "amount": 90 if is_boss else rng.randi_range(5, 13)})
-	if e["seed_drop"] and seeds < 3 and quest_stage == 1:
+	if e["seed_drop"] and seeds < 3 and quest_stage <= 1:
 		loot.append({"kind": "seed", "pos": Vector2(e["x"] + 18, e["y"] - 42), "t": 0.0, "amount": 1})
 	if rng.randf() < 0.13:
 		loot.append({"kind": "potion", "pos": Vector2(e["x"] - 15, e["y"] - 38), "t": 0.0, "amount": 1})
@@ -424,15 +428,27 @@ func update_loot(dt: float) -> void:
 	for i in range(loot.size() - 1, -1, -1):
 		var item: Dictionary = loot[i]
 		item["t"] += dt
-		if player_pos.distance_to(item["pos"] + Vector2(0, 23)) < 82.0:
+		# Aether Seeds magnetize toward the hero and have a forgiving pickup radius on phones.
+		if item["kind"] == "seed":
+			var seed_center: Vector2 = item["pos"] + Vector2(0, 23)
+			if player_pos.distance_to(seed_center) < 170.0:
+				var seed_pos: Vector2 = item["pos"]
+				item["pos"] = seed_pos.move_toward(player_pos - Vector2(0, 23), 380.0 * dt)
+		var pickup_radius := 112.0 if item["kind"] == "seed" else 82.0
+		if player_pos.distance_to(item["pos"] + Vector2(0, 23)) < pickup_radius:
 			match item["kind"]:
 				"coin": coins += item["amount"]
 				"seed":
-					seeds += 1
-					show_message("Aether Seed %d / 3" % mini(seeds, 3), 2.0)
-					if seeds >= 3 and quest_stage == 1:
-						quest_stage = 2
-						show_message("All seeds found! Enter the Ruins and defeat the Warden.", 4.0)
+					if seeds < 3:
+						seeds = mini(3, seeds + int(item.get("amount", 1)))
+						if quest_stage == 1 and seeds >= 3:
+							quest_stage = 2
+							show_message("All 3 Aether Seeds found! The Ruins gate is open.", 4.0)
+						elif quest_stage == 0:
+							show_message("Aether Seed %d / 3 - Talk to Mira in the village!" % seeds, 3.0)
+						else:
+							show_message("Aether Seed %d / 3" % seeds, 2.3)
+						save_game()
 				"potion": potions += 1
 			play_sfx("loot")
 			loot.remove_at(i)
@@ -480,8 +496,9 @@ func interact() -> void:
 	match nearby_npc():
 		"mira":
 			if quest_stage == 0:
-				quest_stage = 1
-				dialogue = "MIRA: The Aether Star is fading. Find 3 glowing seeds in Whisperwood, then free the Warden in the Sunken Ruins."
+				# Keep seeds already collected before talking to Mira.
+				quest_stage = 2 if seeds >= 3 else 1
+				dialogue = "MIRA: You already collected all 3 seeds! The Aether Gate is open." if quest_stage == 2 else "MIRA: Find 3 glowing seeds from the moss slimes in Whisperwood. You have %d / 3 already." % seeds
 				save_game()
 			elif quest_stage == 1:
 				dialogue = "MIRA: Listen to the forest. Defeat the moss slimes to gather %d more Aether Seeds." % maxi(0, 3 - seeds)
@@ -519,6 +536,15 @@ func buy_shop_item(which: int) -> void:
 func start_new_game() -> void:
 	player_pos = Vector2(145, FLOOR_Y)
 	velocity = Vector2.ZERO
+	facing = 1
+	touch_axis = 0.0
+	joystick_touch = -1
+	attack_touch.clear()
+	hold_attack = false
+	skill_timer = 0.0
+	dash_cooldown = 0.0
+	dash_timer = 0.0
+	attack_timer = 0.0
 	hp = 100.0
 	max_hp = 100.0
 	stamina = 100.0
@@ -682,6 +708,9 @@ func area_name() -> String:
 	if player_pos.x < 7250.0: return "SUNKEN RUINS"
 	return "ASTRAL SANCTUM"
 
+func hero_sprite_scale() -> Vector2:
+	return Vector2(float(facing), 1.0)
+
 func _draw() -> void:
 	var camera_x = camera.position.x
 	var left = camera_x - 750.0
@@ -790,7 +819,12 @@ func _draw() -> void:
 	for item in loot:
 		if absf(item["pos"].x - camera_x) > 750.0: continue
 		var art = COIN if item["kind"] == "coin" else (SEED if item["kind"] == "seed" else POTION)
-		draw_texture_rect(art, Rect2(item["pos"].x - 13, item["pos"].y - 13 + sin(item["t"] * 3) * 6, 26, 26), false)
+		var bob := sin(item["t"] * 3.0) * 6.0
+		if item["kind"] == "seed":
+			var glow_center: Vector2 = item["pos"] + Vector2(0, bob)
+			draw_circle(glow_center, 24.0 + sin(item["t"] * 5.0) * 3.0, Color(0.3, 0.95, 0.8, 0.25))
+			draw_label(glow_center + Vector2(-18, -25), "SEED", 13, Color("d8ffad"))
+		draw_texture_rect(art, Rect2(item["pos"].x - 13, item["pos"].y - 13 + bob, 26, 26), false)
 	for b in bolts:
 		var tint = Color("5be7e4") if b["kind"] == "hero" else Color("cf6de9")
 		var halo: Color = tint
@@ -801,9 +835,13 @@ func _draw() -> void:
 	if state != "main":
 		var hero_tint = Color(1, 1, 1, 0.43) if invincible > 0.0 and int(elapsed * 15) % 2 == 0 else Color.WHITE
 		var art = HERO_JUMP if not on_ground else (HERO_RUN if absf(velocity.x) > 45.0 and int(elapsed * 10) % 2 == 0 else HERO_IDLE)
+		# Mirroring the draw transform makes the character face the travel direction.
 		if dash_timer > 0.0:
-			draw_texture_rect(art, Rect2(player_pos.x - float(facing) * 40.0 - 24, player_pos.y - 67, 48, 67), false, Color(0.4, 0.9, 1, 0.26))
-		draw_texture_rect(art, Rect2(player_pos.x - 24, player_pos.y - 67 + (sin(elapsed * 9) if on_ground else 0), 48, 67), false, hero_tint)
+			draw_set_transform(player_pos + Vector2(-float(facing) * 40.0, 0), 0.0, hero_sprite_scale())
+			draw_texture_rect(art, Rect2(-24, -67, 48, 67), false, Color(0.4, 0.9, 1, 0.26))
+		draw_set_transform(player_pos, 0.0, hero_sprite_scale())
+		draw_texture_rect(art, Rect2(-24, -67 + (sin(elapsed * 9) if on_ground else 0), 48, 67), false, hero_tint)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if slash_timer > 0.0:
 			var slash_center = player_pos + Vector2(float(facing) * 22.0, -37.0)
 			draw_arc(slash_center, 54.0, -1.1 if facing > 0 else 2.05, 1.25 if facing > 0 else 4.35, 22, Color("b8f6ff"), 7.0, true)

@@ -109,6 +109,31 @@ func control_button(at: Vector2, radius: float, letter: String, label: String, t
 	centered(at.x, at.y + 8, letter, 27, Color("f2ffef"))
 	centered(at.x, at.y + radius + 16, label, 12, tint)
 
+func skill_status_text() -> String:
+	if game.skill_timer > 0.0:
+		return "%.1fs" % game.skill_timer
+	if game.stamina < 35.0:
+		return "LOW SP"
+	return "READY"
+
+func draw_skill_button(at: Vector2) -> void:
+	var radius := 39.0
+	var tint := Color("c6a2f5")
+	var recharging: bool = game.skill_timer > 0.0
+	var low_stamina: bool = game.stamina < 35.0
+	draw_circle(at + Vector2(3, 5), radius + 2.0, Color(0, 0, 0, 0.31))
+	draw_circle(at, radius, Color("152333") if recharging or low_stamina else Color("284258"))
+	draw_arc(at, radius - 2.0, 0.0, TAU, 48, Color("677586") if recharging else tint, 2.0, true)
+	if recharging:
+		var ready_fraction: float = 1.0 - game.skill_cooldown_fraction()
+		draw_arc(at, radius - 3.0, -PI * 0.5, -PI * 0.5 + TAU * ready_fraction, 48, tint, 4.0, true)
+		centered(at.x, at.y + 7.0, skill_status_text(), 21, Color("f4eaff"))
+	elif low_stamina:
+		centered(at.x, at.y + 6.0, skill_status_text(), 16, Color("f9c4b1"))
+	else:
+		centered(at.x, at.y + 8.0, "*", 27, Color("f4eaff"))
+	centered(at.x, at.y + radius + 16.0, "AETHER", 12, tint)
+
 func _draw() -> void:
 	menu_buttons.clear()
 	top_buttons.clear()
@@ -153,7 +178,7 @@ func draw_game_status(w: float, h: float) -> void:
 	text(Vector2(187, 89), "%d/%d" % [game.exp_points, needed], 13, Color("d3c3e7"))
 	centered(w / 2.0, 30, game.area_name(), 17, Color("cfdecb"))
 	if game.quest_stage < 3:
-		var quest_label = "TALK TO MIRA" if game.quest_stage == 0 else ("AETHER SEEDS %d/3" % game.seeds if game.quest_stage == 1 else "DEFEAT THE WARDEN")
+		var quest_label = ("TALK TO MIRA  (%d/3 SEEDS)" % game.seeds) if game.quest_stage == 0 else ("AETHER SEEDS %d/3" % game.seeds if game.quest_stage == 1 else "DEFEAT THE WARDEN")
 		centered(w / 2.0, 55, quest_label, 14, Color("e4c891"))
 	else:
 		centered(w / 2.0, 55, "VALLEY SAVED — MAIN QUEST COMPLETE", 14, Color("a7f2bc"))
@@ -177,7 +202,7 @@ func draw_mobile_controls(w: float, h: float) -> void:
 	control_button(c["attack"], 44, "S", "ATTACK", Color("f2ba7b"))
 	control_button(c["jump"], 38, "^", "JUMP", Color("b4e4c2"))
 	control_button(c["dash"], 36, ">>", "DASH", Color("84d9f0"))
-	control_button(c["skill"], 39, "*", "AETHER", Color("c6a2f5"))
+	draw_skill_button(c["skill"])
 	control_button(c["potion"], 32, "+", "POTION %d" % game.potions, Color("f5a2a2"))
 	if game.nearby_npc() != "":
 		control_button(c["interact"], 32, "!", "TALK", Color("f3db98"))

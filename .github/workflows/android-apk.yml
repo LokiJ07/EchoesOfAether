@@ -92,6 +92,7 @@ jobs:
           set -o pipefail
           /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/smoke.gd 2>&1 | tee /tmp/godot-gameplay.log
           grep -Fq 'PASS: scene, start, quest, 3 seeds, gate, boss victory, persistent save/load' /tmp/godot-gameplay.log
+          grep -Fq 'PASS: early seed drops, pickups, facing and cooldown HUD' /tmp/godot-gameplay.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|GAME SMOKE FAILED)' /tmp/godot-gameplay.log; then exit 1; fi
 
       - name: Export signed debug APK
