@@ -163,7 +163,7 @@ var secret_caches: Array = []
 var skyshards_collected: Array = []
 var trial_completed: Array = []
 var bonus_trial_completed: Array = []
-var echo_chamber: Node2D
+var echo_chamber
 var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
 var trial_hint_text := ""
