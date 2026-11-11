@@ -68,7 +68,7 @@ static func new_scale(target: int, weights: Array) -> Dictionary:
 
 static func scale_place(data: Dictionary, weight_index: int, side: String) -> bool:
 	var weights: Array = data.get("weights", [])
-	if weight_index < 0 or weight_index >= weights.size() or not side in ["left", "right", "remove"]:
+	if weight_index < 0 or weight_index >= weights.size() or not (side in ["left", "right", "remove"]):
 		return false
 	var left: Array = data.get("left", [])
 	var right: Array = data.get("right", [])
