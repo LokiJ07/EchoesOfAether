@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="256" viewBox="0 0 192 256">
+<defs><linearGradient id="cape" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#3cb1b3"/><stop offset=".46" stop-color="#226b82"/><stop offset="1" stop-color="#173b5d"/></linearGradient>
+<linearGradient id="crystal" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d6ffff"/><stop offset=".4" stop-color="#48e8f7"/><stop offset="1" stop-color="#0e85bd"/></linearGradient>
+<linearGradient id="tunic" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff5e2"/><stop offset="1" stop-color="#bea48d"/></linearGradient>
+</defs>
+<!-- Side scroller adventurer Kael: transparent full-body hand-authored vector sprite -->
+<g transform="translate(0 0) rotate(4 95 147)">
+<path d="M87 100Q41 112 9 79Q47 129 39 186Q74 167 99 142Z" fill="url(#cape)" stroke="#123c56" stroke-width="5"/>
+<path d="M84 117Q32 145 -4 143Q32 161 75 141Z" fill="#1f7886" stroke="#d9ad5d" stroke-width="2"/>
+<path d="M31 154L51 153L42 162L22 170Z" fill="#f1c678"/>
+<g transform="rotate(0 80 172)">
+ <path d="M66 162L92 163L90 207L83 227L61 226L62 198Z" fill="#25354f" stroke="#112b41" stroke-width="4"/>
+ <path d="M62 190L88 195L83 205L62 202Z" fill="#495479"/>
+ <path d="M61 215L87 215L89 234Q85 244 60 243L53 238Z" fill="#684a38" stroke="#1a2838" stroke-width="4"/>
+ <path d="M62 224L83 226" stroke="#d8b578" stroke-width="4"/>
+</g>
+<g transform="rotate(0 104 174)">
+ <path d="M93 160L122 162L119 205L120 230L96 230L95 197Z" fill="#23344d" stroke="#112b41" stroke-width="4"/>
+ <path d="M98 190L120 188L117 203L99 206Z" fill="#536184"/>
+ <path d="M97 217L120 219L126 238Q120 244 93 243L89 238Z" fill="#6b4c3b" stroke="#1a2838" stroke-width="4"/>
+ <path d="M101 228L121 229" stroke="#d3aa66" stroke-width="4"/>
+</g>
+<!-- Torso and waist -->
+<path d="M61 102Q95 87 125 108L127 166Q99 177 61 162Z" fill="url(#tunic)" stroke="#2a3951" stroke-width="5"/>
+<path d="M67 112L83 109L98 149L78 163L58 154Z" fill="#e7d0ac" opacity=".65"/>
+<path d="M104 110L119 108L119 158L104 163Z" fill="#2b4a64"/>
+<path d="M64 121L85 142L97 133L115 148" fill="none" stroke="#cfa354" stroke-width="4"/>
+<path d="M62 156Q94 163 127 157L127 171Q91 178 62 169Z" fill="#5a4237" stroke="#d5ac67" stroke-width="3"/>
+<rect x="80" y="158" width="17" height="14" rx="2" fill="#f2dca3" stroke="#6e4a28" stroke-width="3"/>
+<rect x="52" y="161" width="25" height="30" rx="4" fill="#6b4836" stroke="#d5b06c" stroke-width="3"/>
+<path d="M57 175L69 179L72 173" fill="none" stroke="#eac882" stroke-width="3"/>
+<!-- belt aether crystal -->
+<path d="M112 163L125 162L132 187L122 200L108 186Z" fill="#b78b4c" stroke="#513c2c" stroke-width="4"/>
+<path d="M120 167L128 181L120 194L112 181Z" fill="url(#crystal)" stroke="#d8ffff" stroke-width="2"/>
+<path d="M120 168V189M114 181L126 181" stroke="#f2ffff" stroke-width="2" opacity=".65"/>
+<!-- left arm -->
+<g transform="rotate(25 67 112)">
+<path d="M64 110L51 120L43 151L59 154L76 119Z" fill="#e2b188" stroke="#2a3347" stroke-width="4"/>
+<path d="M43 140L61 144L55 169L37 165Z" fill="#68483a" stroke="#263246" stroke-width="3"/>
+<path d="M44 152L55 157" stroke="#83e9e7" stroke-width="3"/>
+<path d="M42 164L55 166L51 177L38 175Z" fill="#c9936f" stroke="#2c3947" stroke-width="3"/>
+</g>
+<!-- right arm & gauntlet -->
+<g transform="rotate(-15 121 114)">
+<path d="M118 107L136 117L150 155L134 163L115 129Z" fill="#e7ba8e" stroke="#243345" stroke-width="4"/>
+<path d="M132 142L151 147L155 172L138 179L132 161Z" fill="#503e38" stroke="#2a3445" stroke-width="4"/>
+<path d="M137 159L150 164" stroke="#43e1dc" stroke-width="4"/>
+<path d="M142 173L159 175L158 186L143 187Z" fill="#d39e77" stroke="#34404b" stroke-width="3"/>
+<!-- Aether Hook as recognizable silhouette -->
+<g transform="translate(154 187) rotate(-21)">
+<path d="M-3 -5L4 -15L7 14L2 20L-2 7Z" fill="#916c44" stroke="#f7d48e" stroke-width="2"/>
+<circle cx="6" cy="22" r="17" fill="#2a6881" stroke="#cda66a" stroke-width="6"/>
+<circle cx="6" cy="22" r="9" fill="#80eaff" stroke="#e5fdff" stroke-width="3"/>
+<path d="M22 10Q44 13 35 35Q32 46 17 48Q30 28 18 21Z" fill="#dfb46c" stroke="#724f36" stroke-width="3"/>
+<path d="M21 8Q33 3 38 11" fill="none" stroke="#eddda7" stroke-width="3"/>
+</g></g>
+<!-- Cape collar layered in front -->
+<path d="M58 99Q91 88 126 104L125 120L102 128L91 118L70 124L57 114Z" fill="url(#cape)" stroke="#c9a368" stroke-width="3"/>
+<path d="M64 111L95 117L83 125" stroke="#9fe7eb" stroke-width="3" fill="none"/>
+<circle cx="105" cy="112" r="9" fill="#e3be79" stroke="#77572d" stroke-width="2"/>
+<path d="M105 104L110 112L105 119L100 112Z" fill="#59e1e4"/>
+<!-- neck -->
+<path d="M85 85L109 84L107 106L88 107Z" fill="#ddab83" stroke="#354052" stroke-width="3"/>
+<!-- Head, soft cel-shaded face -->
+<path d="M73 46Q88 29 112 37Q135 44 131 70L119 90Q98 110 80 90L70 73Z" fill="#ebb88d" stroke="#2a3448" stroke-width="4"/>
+<path d="M111 78L121 79L118 85Z" fill="#bc775f"/>
+<path d="M84 71Q91 65 99 71M110 70Q118 64 125 69" stroke="#26415b" stroke-width="3" fill="none"/>
+<path d="M91 73L97 73M116 72L121 72" stroke="#35b5c7" stroke-width="3"/>
+<path d="M95 87Q104 95 113 87" stroke="#9e624b" stroke-width="3" fill="none"/>
+<path d="M70 70Q57 48 69 29Q64 11 91 22Q105 5 114 22Q140 19 133 36Q149 47 131 56L117 51L109 39L89 52L74 50Z" fill="#51342d" stroke="#2a2835" stroke-width="4"/>
+<path d="M73 46L64 54L77 55L86 42L94 40L99 32L115 43L124 45L133 39" fill="none" stroke="#a56b45" stroke-width="5"/>
+<path d="M70 45Q96 34 132 46" stroke="#d9ae6d" stroke-width="6" fill="none"/>
+<!-- goggles on the hair -->
+<rect x="79" y="25" width="21" height="14" rx="6" fill="#38bace" stroke="#e3bd78" stroke-width="5"/>
+<rect x="105" y="25" width="21" height="14" rx="6" fill="#5bcbe5" stroke="#e3bd78" stroke-width="5"/>
+<path d="M99 33L105 33" stroke="#6b4232" stroke-width="5"/>
+<path d="M83 28L95 28M110 28L122 28" stroke="#e2ffff" stroke-width="2"/>
+</g></svg>

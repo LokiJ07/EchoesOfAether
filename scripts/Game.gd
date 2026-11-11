@@ -7,6 +7,8 @@ const REALM_CATALOG = preload("res://scripts/RealmCatalog.gd")
 const V5_SAVE_VERSION := 50
 const V6_SAVE_VERSION := 60
 const PUZZLE_ENGINE = preload("res://scripts/PuzzleEngine.gd")
+const ECHO_CHAMBER = preload("res://scripts/EchoLabyrinth.gd")
+const WORLD_RIDDLES = preload("res://scripts/WorldRiddles.gd")
 const BONUS_TRIALS = {
 	"gale_chimes": {"realm": "gale_spire", "name": "SKYWARD CHIME ALTAR", "type": "melody", "reward": 115, "offset": 1350.0},
 	"tide_scales": {"realm": "tide_temple", "name": "TWIN TIDE BALANCES", "type": "scale", "reward": 145, "offset": 1350.0}
@@ -162,6 +164,10 @@ var secret_caches: Array = []
 var skyshards_collected: Array = []
 var trial_completed: Array = []
 var bonus_trial_completed: Array = []
+var echo_chamber
+var world_riddles
+var v9_art: Dictionary = {}
+var kael_art: Dictionary = {}
 var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
 var trial_hint_text := ""
@@ -223,8 +229,14 @@ func _ready() -> void:
 	load_v7_mob_art()
 	load_v5_generated_art()
 	load_v6_generated_art()
+	load_v9_panorama_art()
+	load_kael_character_art()
 	load_premium_art()
 	load_realm_stage("hub")
+	echo_chamber = ECHO_CHAMBER.new()
+	add_child(echo_chamber)
+	world_riddles = WORLD_RIDDLES.new()
+	add_child(world_riddles)
 	camera.position = Vector2(575, 316)
 	camera.make_current()
 	music = AudioStreamPlayer.new()
@@ -239,6 +251,27 @@ func _ready() -> void:
 	sfx.volume_db = -11.0
 	add_child(sfx)
 	update_camera()
+
+func load_kael_character_art() -> void:
+	# Aetherbound Explorer: five original transparent vector poses, cached once
+	# for offline Android. Original older hero PNGs remain as safe fallback.
+	for pose_name in ["idle", "run", "jump", "attack", "guard"]:
+		var path: String = "res://assets/v10_kael_%s.svg" % pose_name
+		if ResourceLoader.exists(path):
+			var resource: Resource = load(path)
+			if resource is Texture2D:
+				kael_art[pose_name] = resource
+
+func load_v9_panorama_art() -> void:
+	# Original, offline panorama-sized illustrations. Never upscale short UI assets
+	# across an entire dungeon; vector art maintains the correct wide aspect.
+	for region_id in ["echo_labyrinth", "mirror_vault", "ruins"]:
+		var art_name: String = "ruins_sonar" if region_id == "ruins" else region_id
+		var file: String = "res://assets/v9_%s.svg" % art_name
+		if ResourceLoader.exists(file):
+			var asset: Resource = load(file)
+			if asset is Texture2D:
+				v9_art[region_id] = asset
 
 func load_realm_backdrops() -> void:
 	# Downloaded by GitHub CI during asset preparation; the game remains fully offline.
@@ -605,6 +638,8 @@ func add_enemy(kind: String, x: float) -> void:
 		"pattern": 0, "special_timer": 0.0, "charging": 0.0, "shielded": false})
 
 func ground_y(x: float) -> float:
+	if world_riddles != null and world_riddles.mirror_gap_at(x):
+		return -1.0
 	for pit in traps:
 		if x > pit.position.x + 4.0 and x < pit.end.x - 4.0:
 			return -1.0
@@ -654,6 +689,8 @@ func _physics_process(dt: float) -> void:
 			return
 		update_moving_platforms(dt)
 		update_player(dt)
+		echo_chamber.update_chamber(dt)
+		world_riddles.update_events(dt)
 		update_enemies(dt)
 		update_projectiles(dt)
 		update_loot(dt)
@@ -696,11 +733,16 @@ func update_player(dt: float) -> void:
 		velocity.x = move_toward(velocity.x, target_speed, (2600.0 if absf(axis) > 0.08 else 2400.0) * dt)
 	velocity.y = minf(900.0, velocity.y + GRAVITY * dt)
 	var old_foot := player_pos.y
+	var old_x: float = player_pos.x
 	player_pos += velocity * dt
 	var travel_area: Dictionary = current_realm()
 	var area_min: float = float(travel_area["start"]) + 62.0
 	var area_max: float = float(travel_area["end"]) - 62.0
 	player_pos.x = clampf(player_pos.x, area_min, area_max)
+	if echo_chamber != null:
+		echo_chamber.block_player(old_x)
+	if world_riddles != null:
+		world_riddles.block_mirror_wall(old_x)
 	# Every realm is a sealed scene. Walking cannot expose the neighboring art seam.
 	if absf(player_pos.x - area_min) < 1.0 or absf(player_pos.x - area_max) < 1.0:
 		velocity.x = 0.0
@@ -1465,6 +1507,10 @@ func enter_realm(id: String) -> bool:
 	if destination.is_empty() or not is_realm_unlocked(id):
 		show_message("REALM LOCKED: Complete the previous chapter.", 3.0)
 		return false
+	if echo_chamber != null:
+		echo_chamber.reset_runtime()
+	if world_riddles != null:
+		world_riddles.reset_runtime()
 	load_realm_stage(id)
 	player_pos = Vector2(float(destination["arrival"]), FLOOR_Y)
 	checkpoint_x = player_pos.x
@@ -1869,6 +1915,11 @@ func nearby_npc() -> String:
 	if nearby_stage_portal() != "": return "portal"
 	if nearby_trial_pedestal() or nearby_bonus_pedestal() != "": return "trial_puzzle"
 	if nearby_story_npc(): return "story"
+	if echo_chamber != null and echo_chamber.near_recorder(): return "echo_record"
+	if world_riddles != null:
+		if world_riddles.near_phase_prism(): return "phase_shift"
+		if world_riddles.near_visible_sigil() >= 0: return "sonar_glyph"
+		if world_riddles.near_sonar_tower(): return "sonar_pulse"
 	if nearby_portal_index() >= 0: return "portal"
 	if nearby_ember_brazier() >= 0: return "ember_brazier"
 	if expansion_completed and not emberling_unlocked and absf(player_pos.x - 16870.0) < 105.0: return "emberling"
@@ -1884,6 +1935,10 @@ func interact() -> void:
 	if state != "playing": return
 	if nearby_secret_cache() != "":
 		collect_secret_cache()
+		return
+	if echo_chamber != null and echo_chamber.try_start_recording():
+		return
+	if world_riddles != null and world_riddles.try_interact():
 		return
 	if nearby_trial_pedestal():
 		open_trial_puzzle()
@@ -2025,6 +2080,9 @@ func start_new_game() -> void:
 	current_realm_id = "hub"
 	trial_completed.clear()
 	bonus_trial_completed.clear()
+	echo_chamber.completed = false
+	echo_chamber.reset_runtime()
+	world_riddles.reset_progress()
 	secret_caches.clear()
 	skyshards_collected.clear()
 	trial_puzzle.clear()
@@ -2103,6 +2161,9 @@ func save_game() -> void:
 		"ember_hunts": ember_hunt_counts, "ember_hunt_claimed": ember_hunt_claimed,
 		"active_realm": current_realm_id, "quest_counts": quest_counts,
 		"trial_completed": trial_completed, "bonus_trial_completed": bonus_trial_completed,
+		"echo_trial_complete": echo_chamber.completed,
+		"mirror_trial_complete": world_riddles.mirror_completed,
+		"sonar_trial_complete": world_riddles.sonar_completed, "sonar_sigils": world_riddles.sonar_collected,
 		"secret_caches": secret_caches, "skyshards_collected": skyshards_collected,
 		"tracked_quest_id": tracked_quest_id,
 		"quest_claimed": quest_claimed, "discovered_realms": discovered_realm_ids,
@@ -2219,6 +2280,9 @@ func load_game() -> bool:
 	checkpoint_x = float(data.get("checkpoint", 145))
 	var restored_realm: String = str(data.get("active_realm", REALM_CATALOG.from_x(checkpoint_x)))
 	load_realm_stage(restored_realm)
+	echo_chamber.reset_runtime()
+	echo_chamber.completed = bool(data.get("echo_trial_complete", false))
+	world_riddles.restore_progress(data)
 	quest_counts = data.get("quest_counts", {})
 	if not quest_counts is Dictionary: quest_counts = {}
 	quest_claimed = data.get("quest_claimed", [])
@@ -2311,6 +2375,15 @@ func mobile_action_at(pos: Vector2) -> String:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key = event.keycode
+		# Storybook pop-ups consume keyboard input; movement cannot bypass a cutscene.
+		if dialogue != "" and state == "playing":
+			if key in [KEY_ENTER, KEY_SPACE, KEY_E]:
+				advance_story_dialogue()
+				return
+			if key == KEY_ESCAPE:
+				story_queue.clear()
+				dialogue = ""
+				return
 		if key == KEY_ESCAPE or key == KEY_P:
 			if state == "playing":
 				state = "pause"
@@ -2451,7 +2524,11 @@ func _draw() -> void:
 		var sky: Color = Color(str(data["sky"]))
 		draw_rect(Rect2(x0, -270, x1 - x0, 810), sky)
 		var premium_key: String = str(data["id"])
-		if graphics_quality > 0 and premium_art.has(premium_key):
+		if graphics_quality > 0 and v9_art.has(premium_key):
+			draw_texture_rect(v9_art[premium_key],
+				Rect2(x0, -175.0, x1 - x0, 730.0), false,
+				Color(1.0, 1.0, 1.0, 0.94 if graphics_quality == 2 else 0.79))
+		elif graphics_quality > 0 and premium_art.has(premium_key):
 			# One illustration per isolated scene — never stretch/repeat across
 			# adjacent realms or expose a visible shared background seam.
 			draw_texture_rect(premium_art[premium_key],
@@ -2507,6 +2584,8 @@ func _draw() -> void:
 		var sy = -80.0 + float((i * 137) % 325)
 		var light = 0.2 + 0.3 * (0.5 + 0.5 * sin(elapsed * 1.9 + float(i)))
 		draw_circle(Vector2(sx, sy), 1.0 if i % 3 else 2.1, Color(0.74, 0.94, 1, light))
+	# v10 environment depth for every independent realm; drawn behind players and props.
+	draw_v10_realm_depth(left, right)
 	# Scenery: forest canopy, village, and ancient ruins.
 	if left < 1900.0:
 		for x in [190.0, 730.0, 1360.0, 1755.0]:
@@ -2735,17 +2814,20 @@ func _draw() -> void:
 		var pose_data: Dictionary = hero_animation_params()
 		var pose: String = pose_data["pose"]
 		var art: Texture2D = HERO_JUMP if pose == "jump" else (HERO_RUN if pose in ["run", "dash", "attack"] else HERO_IDLE)
+		var kael_pose: String = "jump" if pose == "jump" else ("attack" if pose == "attack" else ("run" if pose in ["run", "dash"] else ("guard" if pose == "guard" else "idle")))
+		if kael_art.has(kael_pose):
+			art = kael_art[kael_pose]
 		if pose == "hit": hero_tint = Color("ffb7ae")
 		if pose == "heal": hero_tint = Color("b2ffcc")
 		if pose == "guard": hero_tint = Color("c0e8ff")
 		# Mirroring the draw transform makes the character face the travel direction.
 		if dash_timer > 0.0:
 			draw_set_transform(player_pos + Vector2(-float(facing) * 40.0, 0), 0.0, hero_sprite_scale())
-			draw_texture_rect(art, Rect2(-29, -78, 58, 78), false, Color(0.4, 0.9, 1, 0.26))
+			draw_texture_rect(art, Rect2(-34, -94, 68, 94), false, Color(0.4, 0.9, 1, 0.26))
 		var pose_scale: Vector2 = pose_data["squash"]
 		pose_scale.x *= float(facing)
 		draw_set_transform(player_pos + pose_data["offset"], float(pose_data["angle"]) * float(facing), pose_scale)
-		draw_texture_rect(art, Rect2(-29, -78, 58, 78), false, hero_tint)
+		draw_texture_rect(art, Rect2(-34, -94, 68, 94) if kael_art.has(kael_pose) else Rect2(-29, -78, 58, 78), false, hero_tint)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if guard_window > 0.0:
 			draw_arc(player_pos + Vector2(0, -42), 56.0, 0.0, TAU, 44, Color(0.47, 0.91, 1.0, 0.85), 4.0, true)
@@ -2768,6 +2850,87 @@ func _draw() -> void:
 		draw_circle(Vector2(7800, 120), 150.0, Color(0.7, 0.24, 1.0, 0.08))
 		draw_circle(Vector2(7800, 120), 56 + sin(elapsed * 2) * 7, Color(0.6, 0.46, 1, 0.13))
 
+
+func draw_v10_realm_depth(left: float, right: float) -> void:
+	# Universal light-weight 2.5D depth pass for all 27 realm scenes.
+	# Every object is culled to the camera and the active portal bounds;
+	# nothing here blocks controls, movement, or collision.
+	if graphics_quality == 0:
+		return
+	var realm: Dictionary = current_realm()
+	if realm.is_empty(): return
+	var start: float = float(realm["start"])
+	var end: float = float(realm["end"])
+	var tint: Color = Color(str(realm["sky"]))
+	var name: String = str(realm["id"])
+	var kind: String = str(realm["kind"])
+	var is_cavern: bool = kind in ["dungeon","trial"] or name in ["ruins", "crystal"]
+	var is_woods: bool = name in ["forest", "garden", "marsh", "rootcrypt", "verdant_vault", "mire_catacombs"]
+	var is_furnace: bool = name in ["ember", "cinder", "forge_engine"]
+	var first: int = maxi(0, int(floorf((maxf(start, left - 170.0) - start) / 390.0)))
+	var last: int = mini(int(ceilf((end - start) / 390.0)), int(ceilf((minf(end, right + 170.0) - start) / 390.0)))
+	for i in range(first, last + 1):
+		var px: float = start + float(i) * 390.0 + 150.0
+		if px < start + 65.0 or px > end - 75.0: continue
+		var stagger: float = float(i % 4) * 18.0
+		var far_dark: Color = tint.darkened(0.53)
+		far_dark.a = 0.54
+		var near_light: Color = tint.lightened(0.49)
+		near_light.a = 0.43
+		if is_cavern:
+			# Receding masonry arches, inset alcoves and extruded columns.
+			var top: float = 141.0 + stagger
+			draw_rect(Rect2(px - 112.0, top + 40.0, 224.0, 304.0), Color(far_dark.r,far_dark.g,far_dark.b,0.40))
+			draw_arc(Vector2(px, top + 109.0), 94.0, PI, TAU, 28, near_light, 10.0, true)
+			draw_arc(Vector2(px, top + 112.0), 74.0, PI, TAU, 28, Color(0.02,0.06,0.14,0.27), 10.0, true)
+			for side in [-1.0,1.0]:
+				var col_x: float = px + side * 106.0
+				draw_rect(Rect2(col_x - 15.0, top + 90.0, 30.0, 282.0), far_dark)
+				draw_rect(Rect2(col_x - 20.0, top + 86.0, 40.0, 11.0), near_light)
+				draw_rect(Rect2(col_x - 13.0, top + 91.0, 5.0, 258.0), Color(0.75,0.91,0.93,0.13))
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(px,top+135.0),Vector2(px+19.0,top+170.0),
+				Vector2(px,top+207.0),Vector2(px-19.0,top+170.0)]),
+				Color("76d2da") if i % 3 == 0 else Color("807db4"))
+			draw_rect(Rect2(px - 59.0, top + 271.0, 118.0, 8.0), near_light)
+		elif is_woods:
+			# Three overlapping canopy planes with roots and light scattering.
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(px-22.0,500.0),Vector2(px-6.0,278.0+stagger),
+				Vector2(px+19.0,280.0+stagger),Vector2(px+34.0,500.0)]),far_dark)
+			for j in range(5):
+				var angle: float = float(j) * TAU / 5.0
+				var xx: float = px + cos(angle) * 85.0
+				var yy: float = 271.0 + sin(angle) * 53.0 + stagger
+				draw_circle(Vector2(xx,yy),54.0,Color(near_light.r*0.61,near_light.g*0.89,near_light.b*0.73,0.26))
+				draw_circle(Vector2(xx+10.0,yy-11.0),27.0,Color(0.42,0.74,0.66,0.12))
+			draw_line(Vector2(px,350.0),Vector2(px-49.0,500.0),near_light,6.0)
+			draw_line(Vector2(px,362.0),Vector2(px+54.0,500.0),far_dark,8.0)
+		else:
+			# Stone terrace blocks and layered distant ramparts/rooflines.
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(px-155.0,463.0),Vector2(px-85.0,245.0+stagger),
+				Vector2(px-5.0,320.0+stagger),Vector2(px+70.0,218.0+stagger),
+				Vector2(px+154.0,461.0)]),
+				Color(near_light.r*0.61, near_light.g*0.62, near_light.b*0.73,0.40))
+			draw_rect(Rect2(px-85.0,337.0+stagger,170.0,151.0), far_dark)
+			draw_rect(Rect2(px-94.0,328.0+stagger,188.0,13.0),near_light)
+			for j in range(3):
+				var wx: float = px - 59.0 + float(j) * 59.0
+				draw_rect(Rect2(wx,358.0+stagger,27.0,65.0),Color(0.04,0.12,0.22,0.48))
+				draw_arc(Vector2(wx+13.5,358.0+stagger),13.5,PI,TAU,15,Color("b0d4dc"),2.0)
+		if is_furnace:
+			var glow_x: float = px + 47.0
+			draw_circle(Vector2(glow_x,405.0),38.0,Color(0.97,0.42,0.18,0.15))
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(glow_x-12.0,463.0),Vector2(glow_x,387.0+sin(elapsed)*8.0),
+				Vector2(glow_x+20.0,463.0)]),Color(0.96,0.55,0.23,0.29))
+		# Dim beams establish depth without bright overlays across the hero.
+		if i % 3 == 1:
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(px-13.0,65.0),Vector2(px+19.0,65.0),
+				Vector2(px+117.0,476.0),Vector2(px-114.0,476.0)]),
+				Color(0.60,0.93,0.94,0.034))
 
 func draw_expansion_scenery(left: float, right: float) -> void:
 	# All details are authored procedurally so the extra maps need no network assets.

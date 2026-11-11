@@ -55,9 +55,9 @@ func run_tests() -> void:
 	if not ok(game.dialogue == "", "Dialogue can finish without trapping player"): return
 	game.dialogue = "STORY SCENE ONE"
 	game.story_queue = ["STORY SCENE TWO", "STORY SCENE THREE"]
-	var skip_panel := Rect2(game.hud.size.x * 0.14, game.hud.size.y * 0.68,
-		game.hud.size.x * 0.72, maxf(155.0, game.hud.size.y * 0.25))
-	var skip_action := skip_panel.end + Vector2(-100.0, -skip_panel.size.y + 34.0)
+	# The v10 responsive storybook layout uses a dedicated Skip Story button.
+	# Query the actual layout instead of hard-coding the old v5 popup coordinates.
+	var skip_action: Vector2 = game.hud.story_skip_rect(game.hud.size.x, game.hud.size.y).get_center()
 	game.hud.handle_menu_press(skip_action)
 	if not ok(game.dialogue == "" and game.story_queue.is_empty(), "Skip Story exits immediately without blocking gameplay"): return
 	game.player_pos = Vector2(4690, 500)

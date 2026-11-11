@@ -348,6 +348,30 @@ jobs:
           grep -Fq 'PASS: optional chime and counterweight altars, mobile interaction, one-time rewards and save migration' /tmp/godot-v8.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V8 BONUS FAILED)' /tmp/godot-v8.log; then exit 1; fi
 
+      - name: Verify v9 living Echo Labyrinth shadow replay, physical gate and save migration
+        shell: bash
+        run: |
+          set -eo pipefail
+          timeout --signal=TERM 90s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v9_echo_labyrinth.gd 2>&1 | tee /tmp/godot-v9.log
+          grep -Fq 'PASS: v9 physical ghost recording, real Android input, blocking gate, replay switches, rewards and save migration' /tmp/godot-v9.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V9 ECHO FAILED)' /tmp/godot-v9.log; then exit 1; fi
+
+      - name: Verify v9 Mirror Vault era collisions and Sunken Ruins sonar glyphs
+        shell: bash
+        run: |
+          set -eo pipefail
+          timeout --signal=TERM 90s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v9_world_riddles.gd 2>&1 | tee /tmp/godot-v9-world.log
+          grep -Fq 'PASS: v9 past-present bridge collision, timeline gate, timed sonar glyphs, rewards and save compatibility' /tmp/godot-v9-world.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V9 WORLD FAILED)' /tmp/godot-v9-world.log; then exit 1; fi
+
+      - name: Verify v10 illustrated world atlas, Kael sprite animation, storybook dialogue and save persistence
+        shell: bash
+        run: |
+          set -eo pipefail
+          timeout --signal=TERM 100s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v10_story_atlas_character.gd 2>&1 | tee /tmp/godot-v10.log
+          grep -Fq 'PASS: v10 illustrated chapter atlas, functional unlocking and travel, 5 Kael sprites, NPC storybook popups and save migration' /tmp/godot-v10.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V10 ATLAS FAILED)' /tmp/godot-v10.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -405,4 +429,7 @@ jobs:
             /tmp/godot-v7.log
             /tmp/godot-aether-mechanics.log
             /tmp/godot-v8.log
+            /tmp/godot-v9.log
+            /tmp/godot-v9-world.log
+            /tmp/godot-v10.log
           if-no-files-found: ignore

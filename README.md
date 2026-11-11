@@ -1,13 +1,26 @@
-# Echoes of Aether v8 — Optional Chime & Counterweight Encounters
+# Echoes of Aether v10 — Illustrated World Atlas & Storybook Adventure
 
-This source milestone introduces two **additional, optional playable puzzle encounters** without changing the original eight v6 puzzle chambers:
+**New playable UI / presentation upgrade:** The old three-column text atlas is replaced with a fully illustrated, 1600 x 900 original SVG world map inspired by the game's 2.5D concept direction, with **19 interactive regions and dungeon destinations**, connected chapter routes, live lock and discovery status, and a saved-progress indicator calculated from actual visited regions, completed quests and cleared dungeons. Tap a map node to inspect it; **TRAVEL** only appears if its real portal unlock condition passes. Progress uses existing save fields; locked destinations cannot bypass the original story.
 
-- **Skyward Chime Altar** in Gale Spire, about 985 world units east of the stage entrance: watch/listen to a five-note symbol sequence and repeat it by tapping four differently pitched runes. Wrong inputs reset only the sequence. The visual preview remains available with sound off.
-- **Twin Tide Balances** in Temple of the Tide at the corresponding stage offset: cycle each of four weight stones among shelf, left pan, and right pan, solving the physical mass-placement condition of five units per pan.
+**Storyline:** Chapter introductions and lore NPC encounters now appear as large bottom-screen storybook panels with illustrated character portraits, clear speaker nameplates, wrapped readable narrative, accessible **NEXT** and **SKIP STORY** controls, and keyboard support. Gameplay pauses while the scene is visible; the scene itself stays visible behind the dialogue.
 
-Each altar is drawn in the world, shows the existing context-aware INTERACT button nearby, opens the existing safe-to-exit landscape puzzle UI, and awards a relic/coins once. New completed flags save under `bonus_trial_completed`, default safely for existing v7 save files, and reset on New Adventure. All old v6 chambers, player HUD layouts, portal requirements and package identity remain unchanged.
+**Playable hero:** Kael, the Aetherbound Explorer, replaces the old flat hero artwork with five original alpha-transparent, offline SVG pose sprites (idle, run, jump, attack and guard). His goggles, teal-and-gold scarf, crystal, and Aether Hook are designed for visibility at side-scroller size. These are in-game hand-authored vector sprites matching the separately generated concept direction, not direct pixel copies of the original concept sheet. Older sprite resources remain fallback. World illustrations and NPC portraits are imported into Godot and bundled into the Android APK.
 
-**Build verification:** the GitHub workflow now runs reusable mechanics checks and `tests/v8_optional_puzzles.gd` (actual main scene, interaction, wrong presses, solve, one-time rewards and save migration) after the existing v0.1–v7 regressions and before exporting an APK. Code committed is not proof of tests passing: check the latest Actions run. Physical Android touch/collision/visual playtesting remains necessary. The remaining proposed ghost, era, sonar, deciphering, stealth, restoration and branching narrative features are **not yet integrated into the live game**; they are only foundations or documented plans.
+**Depth:** The 27 original portal-isolated realms gain additional low-cost environmental depth: receding ruins and arches, layer-separated forest canopy and roots, extruded masonry, torches, perspective terraces and light shafts. The game remains offline 2D with a 2.5D appearance, not a new 3D engine.
+
+**Regression QA:** Existing v0.1–v9 gameplay, signing identity and save migration checks remain intact. The Android CI now also executes `tests/v10_story_atlas_character.gd` for real Godot texture import, 19 tappable atlas nodes, locked/unlocked travel, chapter progress, character poses and storybook Next/Skip, then exports and verifies a signed debug APK. Real Godot visual captures include the atlas, story pop-up and new dungeon stages. Confirm the latest GitHub Actions conclusion before trusting any build; a phone playtest is still needed.
+
+## v9 — Three different in-world dungeon mechanics
+
+- **Echo Labyrinth:** Use the in-world recorder, walk onto a glowing pressure plate for a ten-second recording, then let the animated playback ghost hold the switch while you pass a physically locked gate. Claim the relic for a saved, one-time reward.
+- **Mirror Vault:** SHIFT between the PAST and PRESENT world states to make a missing bridge solid, cross it, then shift to the correct era to open a second physical gate and retrieve the Chrono Relic.
+- **Sunken Ruins:** Activate real in-world sonar towers and seek three hidden glyphs while their 3.5-second reveal pulses last. Progress, quests and one-time rewards survive save/load.
+
+Three original wide offline SVG dungeon panoramas accompany the above encounters. The cumulative journal now contains **71 quests**. Legacy v6 puzzle rooms and v8 optional encounters are preserved.
+
+## v8 — Optional chime and counterweight altars
+
+The **Skyward Chime Altar** in Gale Spire and **Twin Tide Balances** in Temple of the Tide remain optional, playable encounters at **1,350 world units** east of their respective scene beginnings. Chimes use a five-note visual/audio pattern; Tide Balances uses two pans with an exact weight sum. Completion saves under `bonus_trial_completed`, and one-time relic and coin rewards cannot be repeated. Both are safe to exit and do not gate main story progress.
 
 ---
 # Echoes of Aether v7 — Field Review & Deep Traversal
