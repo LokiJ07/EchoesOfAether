@@ -35,6 +35,12 @@ func run_tests() -> void:
 	if not ok(game.dialogue != "" and game.story_queue.size() > 0, "Realm story includes multiple dialogue beats"): return
 	game.advance_story_dialogue()
 	if not ok(game.dialogue != "", "Dialogue proceeds through a chapter sequence"): return
+	# Reading an NPC's story cannot expose the player to unresponsive combat.
+	game.player_pos = Vector2(2475.0, 500.0)
+	game.hp = game.max_hp
+	game.invincible = 0.0
+	game._physics_process(0.55)
+	if not ok(game.hp == game.max_hp and game.touch_axis == 0.0, "Dialogue pauses nearby enemy damage and movement"): return
 	game.advance_story_dialogue()
 	if not ok(game.dialogue == "", "Dialogue can finish without trapping player"): return
 	game.dialogue = "STORY SCENE ONE"
@@ -53,6 +59,11 @@ func run_tests() -> void:
 	var camera_half: float = game.get_viewport().get_visible_rect().size.x * 0.5 / maxf(0.1, game.camera.zoom.x)
 	if not ok(game.camera.position.x + camera_half <= 4750.5 and game.camera.position.x - camera_half >= 1899.5, "Camera never reveals next realm across border"): return
 	game.touch_axis = 0.0
+	game.player_pos.x = 4560.0
+	game.portal_cooldown = 0.0
+	if not ok(game.nearby_stage_portal() == "" and game.nearby_cache_index() >= 0, "Dungeon gate no longer blocks the original relic chest"): return
+	game.player_pos.x = 4688.0
+	if not ok(game.nearby_stage_portal() == "rootcrypt", "Dungeon gate remains reachable at end of realm"): return
 	if not ok(game.nearby_stage_portal() == "rootcrypt" or game.player_pos.x >= 4685.0, "Forest dungeon gate lies at far side of map"): return
 	game.state = "playing"
 	if not ok(game.enter_realm("rootcrypt") and game.current_realm_id == "rootcrypt", "Dungeon loads its own separate scene"): return

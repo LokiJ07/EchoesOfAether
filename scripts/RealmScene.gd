@@ -26,7 +26,7 @@ func _draw() -> void:
 	if absf(middle - gate_x) < half_width:
 		_draw_portal(gate_x, hue, "TRAVEL" if info["kind"] != "dungeon" else "EXIT DUNGEON")
 	if info["kind"] == "realm" and str(info["dungeon"]) != "":
-		var deep_gate: float = end - 250.0
+		var deep_gate: float = end - 85.0
 		if absf(middle - deep_gate) < half_width:
 			_draw_portal(deep_gate, Color("edaf72"), "DUNGEON")
 	if info["kind"] != "hub":

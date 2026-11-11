@@ -452,6 +452,17 @@ func _physics_process(dt: float) -> void:
 	realm_transition = maxf(0.0, realm_transition - dt)
 	screen_shake = maxf(0.0, screen_shake - dt)
 	if state == "playing":
+		# NPC story scenes pause enemy movement and hazards while dialogue is visible.
+		# Reading is never a combat disadvantage on a touchscreen.
+		if dialogue != "":
+			touch_axis = 0.0
+			joystick_touch = -1
+			attack_touch.clear()
+			hold_attack = false
+			update_camera()
+			queue_redraw()
+			hud.queue_redraw()
+			return
 		update_moving_platforms(dt)
 		update_player(dt)
 		update_enemies(dt)
@@ -1297,11 +1308,11 @@ func nearby_stage_portal() -> String:
 	var region: Dictionary = current_realm()
 	if region.is_empty(): return ""
 	var start_gate: float = 1720.0 if current_realm_id == "hub" else float(region["start"]) + 145.0
-	if absf(player_pos.x - start_gate) < 108.0 and absf(player_pos.y - FLOOR_Y) < 142.0:
+	if absf(player_pos.x - start_gate) < 69.0 and absf(player_pos.y - FLOOR_Y) < 142.0:
 		return "network" if region["kind"] != "dungeon" else str(region["parent"])
 	if region["kind"] == "realm" and str(region["dungeon"]) != "":
-		var dungeon_gate: float = float(region["end"]) - 250.0
-		if absf(player_pos.x - dungeon_gate) < 110.0 and absf(player_pos.y - FLOOR_Y) < 140.0:
+		var dungeon_gate: float = float(region["end"]) - 85.0
+		if absf(player_pos.x - dungeon_gate) < 55.0 and absf(player_pos.y - FLOOR_Y) < 140.0:
 			return str(region["dungeon"])
 	return ""
 
