@@ -799,12 +799,12 @@ func draw_v6_puzzle(w: float, h: float) -> void:
 	var data: Dictionary = game.trial_puzzle
 	if data.is_empty(): return
 	var kind: String = str(data.get("kind", ""))
-	var chamber: Dictionary = game.REALM_CATALOG.TRIALS.get(game.trial_puzzle_id, {})
+	var chamber: Dictionary = game.BONUS_TRIALS.get(game.trial_puzzle_id, {}) if game.BONUS_TRIALS.has(game.trial_puzzle_id) else game.REALM_CATALOG.TRIALS.get(game.trial_puzzle_id, {})
 	var name: String = str(chamber.get("name", "HIDDEN CHAMBER"))
 	centered(w * 0.5, box_rect.position.y + 81.0, name, 21, Color("f5d7a7"))
 	centered(w * 0.5, box_rect.position.y + 106.0,
 		{"mosaic": "REASSEMBLE THE BROKEN WORLD MAP", "circuit": "CONNECT THE ENERGY BEAM", "logic": "SOLVE THREE BALANCED EQUATIONS",
-		"memory": "MEMORIZE AND REPEAT THE GLYPHS"}.get(kind, "SOLVE THE CHAMBER"), 15, Color("a7e9df"))
+		"memory": "MEMORIZE AND REPEAT THE GLYPHS", "melody": "STUDY THE FIVE CHIMES, REPLAY THE TUNE", "scale": "BALANCE TWO PLATFORMS TO THE SAME MASS"}.get(kind, "SOLVE THE CHAMBER"), 15, Color("a7e9df"))
 	var tile: float = minf(85.0, (panel_h - 212.0) / 3.0)
 	var gap: float = 7.0
 	var grid_left: float = box_rect.position.x + 68.0
@@ -854,19 +854,35 @@ func draw_v6_puzzle(w: float, h: float) -> void:
 		text(Vector2(grid_left, grid_top + 175), "LEFT + MID = %d" % int(cl[0]), 17, Color("ffe2a5"))
 		text(Vector2(grid_left, grid_top + 200), "MID + RIGHT = %d" % int(cl[1]), 17, Color("ffe2a5"))
 		text(Vector2(grid_left, grid_top + 225), "LEFT + RIGHT = %d" % int(cl[2]), 17, Color("ffe2a5"))
-	elif kind == "memory":
+	elif kind == "scale":
+		var weights: Array = data["weights"]
+		var placements: Array = data["placements"]
+		var left_mass := 0
+		var right_mass := 0
+		for i in range(weights.size()):
+			var location: int = int(placements[i])
+			if location == 1: left_mass += int(weights[i])
+			if location == 2: right_mass += int(weights[i])
+			var rx: float = grid_left + float(i % 2) * 145.0
+			var ry: float = grid_top + float(int(i / 2)) * 98.0
+			var side: String = ["SHELF", "LEFT", "RIGHT"][location]
+			menu_button(Rect2(rx, ry, 133.0, 80.0), "%d KG: %s" % [int(weights[i]), side],
+				"v6_cell:%d" % i, [Color("99aabd"), Color("b8e6a1"), Color("94d8fa")][location])
+		text(Vector2(grid_left + 7.0, grid_top + 232.0), "LEFT: %d / 5    RIGHT: %d / 5" % [left_mass, right_mass], 17, Color("ffe2a5"))
+		text(Vector2(grid_left + 7.0, grid_top + 257.0), "TAP WEIGHTS TO MOVE THEM", 15, Color("a5ddd0"))
+	elif kind in ["memory", "melody"]:
 		var colours: Array = ["SUN", "MOON", "STAR", "FLAME"]
 		for i in range(4):
 			var rx: float = grid_left + float(i) * (tile * 0.84 + 9.0)
 			menu_button(Rect2(rx, grid_top + 110.0, tile * 0.82, 87.0), str(colours[i]),
 				"v6_cell:%d" % i, [Color("ffe4a5"), Color("c5d4fe"), Color("a8ece3"), Color("f9a481")][i])
-		var preview: String = "HIDDEN — REPEAT FROM MEMORY"
+		var preview: String = "LISTEN / OBSERVE, THEN REPEAT" if kind == "melody" else "HIDDEN — REPEAT FROM MEMORY"
 		if game.trial_preview_time > 0.0:
 			preview = ""
 			for glyph in data["sequence"]:
 				preview += str(colours[int(glyph)]) + "   "
 		centered(grid_left + 181.0, grid_top + 63.0, preview, 13, Color("ffdcad"))
-		centered(grid_left + 183.0, grid_top + 239.0, "CORRECT: %d / %d" % [int(data["progress"]), data["sequence"].size()], 17, Color("a8f2cf"))
+		centered(grid_left + 183.0, grid_top + 239.0, "NOTES: %d / %d" if kind == "melody" else "CORRECT: %d / %d" % [int(data["progress"]), data["sequence"].size()], 17, Color("a8f2cf"))
 	var info_x: float = box_rect.position.x + panel_w * 0.57
 	var info_y: float = grid_top + 18.0
 	text(Vector2(info_x, info_y), "CHAMBER RULES", 20, Color("f4d9a4"))
