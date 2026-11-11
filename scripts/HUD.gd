@@ -213,7 +213,9 @@ func handle_top_press(pos: Vector2) -> bool:
 			match entry["key"]:
 				"bag": game.state = "inventory"
 				"quest": game.state = "quests"
-				"map": game.state = "worldmap"
+				"map":
+					atlas_selected = game.current_realm_id if not atlas_item(game.current_realm_id).is_empty() else "hub"
+					game.state = "worldmap"
 				"pause":
 					game.state = "pause"
 					game.save_game()
@@ -222,9 +224,7 @@ func handle_top_press(pos: Vector2) -> bool:
 
 func handle_menu_press(pos: Vector2) -> bool:
 	if game.dialogue != "":
-		var panel := Rect2(size.x * 0.14, size.y * 0.68, size.x * 0.72, maxf(155.0, size.y * 0.25))
-		var skip := Rect2(panel.end.x - 185.0, panel.position.y + 12.0, 170.0, 40.0)
-		if skip.has_point(pos):
+		if story_skip_rect(size.x, size.y).has_point(pos):
 			game.story_queue.clear()
 			game.dialogue = ""
 		else:
@@ -233,6 +233,10 @@ func handle_menu_press(pos: Vector2) -> bool:
 	for entry in menu_buttons:
 		if not entry["rect"].has_point(pos): continue
 		var code: String = str(entry["key"])
+		if code.begins_with("atlas_node:"):
+			atlas_selected = code.trim_prefix("atlas_node:")
+			queue_redraw()
+			return true
 		if code.begins_with("realm:"):
 			game.enter_realm(code.trim_prefix("realm:"))
 			return true
@@ -249,6 +253,9 @@ func handle_menu_press(pos: Vector2) -> bool:
 			queue_redraw()
 			return true
 		match entry["key"]:
+			"atlas_travel":
+				if game.is_realm_unlocked(atlas_selected):
+					game.enter_realm(atlas_selected)
 			"new": game.start_new_game()
 			"continue": game.continue_game()
 			"resume": game.state = "playing"
@@ -608,29 +615,97 @@ func draw_main_menu(w: float, h: float) -> void:
 	centered(cx, top + box_h - 30.0, "OFFLINE   •   CUSTOM HUD   •   v5.0", 14, Color("9ee5d1"))
 	centered(w * 0.5, h - 19.0, "ORIGINAL PIXEL ART RPG   |   HIGGSFIELD WORLD ART   |   GODOT 4", 13, Color("d0e0da"))
 
+
+func story_dialogue_rect(w: float, h: float) -> Rect2:
+	# Movie-like story panel, short enough to preserve the scene and hero.
+	var height: float = clampf(h * 0.31, 164.0, 224.0)
+	return Rect2(w * 0.075, h - height - 14.0, w * 0.85, height)
+
+func story_skip_rect(w: float, h: float) -> Rect2:
+	var panel: Rect2 = story_dialogue_rect(w, h)
+	return Rect2(panel.end.x - 123.0, panel.position.y + 12.0, 107.0, 34.0)
+
+func story_next_rect(w: float, h: float) -> Rect2:
+	var panel: Rect2 = story_dialogue_rect(w, h)
+	return Rect2(panel.end.x - 149.0, panel.end.y - 57.0, 132.0, 44.0)
+
+func story_speaker() -> String:
+	var raw: String = str(game.dialogue)
+	var marker: int = raw.find(":")
+	return raw.substr(0, marker).strip_edges().to_upper() if marker > 0 and marker < 35 else "AETHER ARCHIVES"
+
+func story_body() -> String:
+	var raw: String = str(game.dialogue)
+	var marker: int = raw.find(":")
+	return raw.substr(marker + 1).strip_edges() if marker > 0 and marker < 35 else raw
+
+func story_portrait_id() -> String:
+	var speaker: String = story_speaker()
+	if speaker.contains("SEN"): return "sen"
+	if speaker.contains("MIRA"): return "mira"
+	if speaker.contains("VERA"): return "vera"
+	if speaker.contains("ELIAN") or speaker.contains("SCOUT") or speaker.contains("TARO"): return "scout"
+	return "narrator"
+
 func draw_dialogue(w: float, h: float) -> void:
-	var r = Rect2(w * 0.14, h * 0.68, w * 0.72, maxf(155.0, h * 0.25))
-	box(r, Color("102b3b"), Color("e0ba79"), 2.7)
-	draw_rect(Rect2(r.position + Vector2(12, 10), Vector2(r.size.x - 24, 3)), Color("78d1c5"))
-	draw_circle(r.position + Vector2(28, 38), 12.0, Color("dcb976"))
-	var dialogue: String = game.dialogue
-	# Wrap dialogue text to remain readable on narrow phones.
-	var words = dialogue.split(" ")
-	var current = ""
+	# Pop-up inspired by classic 2D storybook adventures, not plain floating text.
+	var panel: Rect2 = story_dialogue_rect(w, h)
+	# Lower-half dimming leaves the artwork and player's surroundings visible.
+	draw_rect(Rect2(0.0, panel.position.y - 24.0, w, h - panel.position.y + 24.0),
+		Color(0.025, 0.035, 0.08, 0.27))
+	box(panel, Color("e8dcc0"), Color("af8652"), 4.0)
+	draw_rect(Rect2(panel.position + Vector2(8.0, 8.0),
+		panel.size - Vector2(16.0, 16.0)), Color("d5ba87"), false, 1.5)
+	draw_rect(Rect2(panel.position + Vector2(16.0, 16.0),
+		panel.size - Vector2(32.0, 32.0)), Color(0.97, 0.91, 0.77, 0.18))
+	for corner in [panel.position + Vector2(17.0, 17.0),
+		Vector2(panel.end.x - 17.0, panel.position.y + 17.0),
+		Vector2(panel.position.x + 17.0, panel.end.y - 17.0),
+		panel.end - Vector2(17.0, 17.0)]:
+		draw_circle(corner, 5.0, Color("b08a59"))
+	var portrait_side: float = minf(146.0, panel.size.y - 37.0)
+	var portrait: Rect2 = Rect2(panel.position + Vector2(18.0, 18.0),
+		Vector2(portrait_side, portrait_side))
+	box(portrait, Color("214b58"), Color("cead6c"), 3.0)
+	var portrait_id: String = story_portrait_id()
+	if dialogue_portraits.has(portrait_id):
+		draw_texture_rect(dialogue_portraits[portrait_id], portrait.grow(-5.0), false)
+	else:
+		draw_circle(portrait.get_center(), portrait_side * 0.30, Color("86c2c8"))
+		draw_circle(portrait.get_center() + Vector2(0.0, -10.0), portrait_side * 0.18, Color("dbb18d"))
+	var px: float = portrait.end.x + 18.0
+	# Clear nameplate, with speaker-specific portrait even when characters share a scene.
+	var speaker: String = story_speaker()
+	var name_width: float = minf(panel.end.x - px - 141.0,
+		maxf(185.0, font.get_string_size(speaker, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 47.0))
+	draw_rect(Rect2(px, panel.position.y + 16.0, name_width, 35.0), Color("1c5864"))
+	draw_rect(Rect2(px, panel.position.y + 16.0, name_width, 35.0), Color("d2a769"), false, 2.0)
+	text(Vector2(px + 14.0, panel.position.y + 40.0), speaker, 18, Color("f7e3b1"))
+	var body_text: String = story_body()
+	var available_width: float = maxf(140.0, panel.end.x - px - 28.0)
+	var font_size: int = 17 if w >= 980.0 else 15
 	var lines: Array = []
-	for word in words:
-		var test = current + (" " if current != "" else "") + word
-		if font.get_string_size(test, HORIZONTAL_ALIGNMENT_LEFT, -1, 19).x > r.size.x - 70 and current != "":
+	var current: String = ""
+	for word in body_text.split(" "):
+		var trial: String = current + (" " if not current.is_empty() else "") + word
+		if not current.is_empty() and font.get_string_size(trial, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > available_width:
 			lines.append(current)
 			current = word
-		else: current = test
+		else:
+			current = trial
 	if current != "": lines.append(current)
-	for i in range(mini(lines.size(), 4)):
-		text(r.position + Vector2(26, 38 + i * 25), lines[i], 19, Color("fff4d2"))
-	var skip_rect := Rect2(r.end.x - 185.0, r.position.y + 12.0, 170.0, 40.0)
-	box(skip_rect, Color("344254"), Color("e5c39c"), 1.5)
-	centered(skip_rect.get_center().x, skip_rect.position.y + 27.0, "SKIP STORY", 15, Color("fce8ca"))
-	text(r.position + Vector2(r.size.x - 188, r.size.y - 15), "TAP TO CONTINUE", 14, Color("9fe1d2"))
+	for i in range(mini(lines.size(), 3)):
+		text(Vector2(px + 1.0, panel.position.y + 80.0 + float(i) * 27.0),
+			str(lines[i]), font_size, Color("273d45"))
+	var next_button: Rect2 = story_next_rect(w, h)
+	box(next_button, Color("1f6974"), Color("c5a56e"), 2.0)
+	centered(next_button.get_center().x, next_button.position.y + 28.0,
+		"NEXT  >" if not game.story_queue.is_empty() else "FINISH  >", 18, Color("f9e5b7"))
+	var skip_button: Rect2 = story_skip_rect(w, h)
+	box(skip_button, Color("62594e"), Color("d1b98e"), 1.5)
+	centered(skip_button.get_center().x, skip_button.position.y + 23.0, "SKIP", 14, Color("f8ead2"))
+	text(Vector2(px + 4.0, panel.end.y - 20.0), "PAGE %d  |  Tap NEXT to continue" % maxi(1, 1 + game.story_queue.size()),
+		12, Color("6a766f"))
 
 func draw_inventory(w: float, h: float) -> void:
 	var r = modal(w, h, "TRAVELER'S INVENTORY", 700, 520)
