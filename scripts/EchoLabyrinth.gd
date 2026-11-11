@@ -89,7 +89,7 @@ func block_player(old_x: float) -> void:
 		return
 	# One-way chamber challenge: can always retreat towards the exit/recorder.
 	# The barrier blocks jumps and dashes, not just characters walking on the floor.
-	if old_x < GATE_X - 26.0 and game.player_pos.x >= GATE_X - 26.0:
+	if old_x <= GATE_X - 25.9 and game.player_pos.x > GATE_X - 26.0:
 		game.player_pos.x = GATE_X - 26.0
 		game.velocity.x = minf(game.velocity.x, 0.0)
 		if blocked_message_cooldown <= 0.0:
