@@ -356,6 +356,14 @@ jobs:
           grep -Fq 'PASS: v9 physical ghost recording, real Android input, blocking gate, replay switches, rewards and save migration' /tmp/godot-v9.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V9 ECHO FAILED)' /tmp/godot-v9.log; then exit 1; fi
 
+      - name: Verify v9 Mirror Vault era collisions and Sunken Ruins sonar glyphs
+        shell: bash
+        run: |
+          set -eo pipefail
+          timeout --signal=TERM 90s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v9_world_riddles.gd 2>&1 | tee /tmp/godot-v9-world.log
+          grep -Fq 'PASS: v9 past-present bridge collision, timeline gate, timed sonar glyphs, rewards and save compatibility' /tmp/godot-v9-world.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V9 WORLD FAILED)' /tmp/godot-v9-world.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -414,4 +422,5 @@ jobs:
             /tmp/godot-aether-mechanics.log
             /tmp/godot-v8.log
             /tmp/godot-v9.log
+            /tmp/godot-v9-world.log
           if-no-files-found: ignore
