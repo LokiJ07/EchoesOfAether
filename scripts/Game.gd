@@ -166,6 +166,7 @@ var trial_completed: Array = []
 var bonus_trial_completed: Array = []
 var echo_chamber
 var world_riddles
+var v9_art: Dictionary = {}
 var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
 var trial_hint_text := ""
@@ -227,6 +228,7 @@ func _ready() -> void:
 	load_v7_mob_art()
 	load_v5_generated_art()
 	load_v6_generated_art()
+	load_v9_panorama_art()
 	load_premium_art()
 	load_realm_stage("hub")
 	echo_chamber = ECHO_CHAMBER.new()
@@ -247,6 +249,17 @@ func _ready() -> void:
 	sfx.volume_db = -11.0
 	add_child(sfx)
 	update_camera()
+
+func load_v9_panorama_art() -> void:
+	# Original, offline panorama-sized illustrations. Never upscale short UI assets
+	# across an entire dungeon; vector art maintains the correct wide aspect.
+	for region_id in ["echo_labyrinth", "mirror_vault", "ruins"]:
+		var art_name: String = "ruins_sonar" if region_id == "ruins" else region_id
+		var file: String = "res://assets/v9_%s.svg" % art_name
+		if ResourceLoader.exists(file):
+			var asset: Resource = load(file)
+			if asset is Texture2D:
+				v9_art[region_id] = asset
 
 func load_realm_backdrops() -> void:
 	# Downloaded by GitHub CI during asset preparation; the game remains fully offline.
@@ -2490,7 +2503,11 @@ func _draw() -> void:
 		var sky: Color = Color(str(data["sky"]))
 		draw_rect(Rect2(x0, -270, x1 - x0, 810), sky)
 		var premium_key: String = str(data["id"])
-		if graphics_quality > 0 and premium_art.has(premium_key):
+		if graphics_quality > 0 and v9_art.has(premium_key):
+			draw_texture_rect(v9_art[premium_key],
+				Rect2(x0, -175.0, x1 - x0, 730.0), false,
+				Color(1.0, 1.0, 1.0, 0.94 if graphics_quality == 2 else 0.79))
+		elif graphics_quality > 0 and premium_art.has(premium_key):
 			# One illustration per isolated scene — never stretch/repeat across
 			# adjacent realms or expose a visible shared background seam.
 			draw_texture_rect(premium_art[premium_key],
