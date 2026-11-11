@@ -623,7 +623,7 @@ func story_dialogue_rect(w: float, h: float) -> Rect2:
 
 func story_skip_rect(w: float, h: float) -> Rect2:
 	var panel: Rect2 = story_dialogue_rect(w, h)
-	return Rect2(panel.end.x - 123.0, panel.position.y + 12.0, 107.0, 34.0)
+	return Rect2(panel.end.x - 148.0, panel.position.y + 12.0, 132.0, 34.0)
 
 func story_next_rect(w: float, h: float) -> Rect2:
 	var panel: Rect2 = story_dialogue_rect(w, h)
@@ -703,8 +703,8 @@ func draw_dialogue(w: float, h: float) -> void:
 		"NEXT  >" if not game.story_queue.is_empty() else "FINISH  >", 18, Color("f9e5b7"))
 	var skip_button: Rect2 = story_skip_rect(w, h)
 	box(skip_button, Color("62594e"), Color("d1b98e"), 1.5)
-	centered(skip_button.get_center().x, skip_button.position.y + 23.0, "SKIP", 14, Color("f8ead2"))
-	text(Vector2(px + 4.0, panel.end.y - 20.0), "PAGE %d  |  Tap NEXT to continue" % maxi(1, 1 + game.story_queue.size()),
+	centered(skip_button.get_center().x, skip_button.position.y + 23.0, "SKIP STORY", 13, Color("f8ead2"))
+	text(Vector2(px + 4.0, panel.end.y - 20.0), "STORY  |  %d SCENE(S) LEFT  |  Tap NEXT" % game.story_queue.size(),
 		12, Color("6a766f"))
 
 func draw_inventory(w: float, h: float) -> void:
@@ -899,12 +899,13 @@ func draw_world_map(w: float, h: float) -> void:
 		if selected:
 			draw_arc(pos, 35.0, 0, TAU, 40, Color("fff2ba"), 2.4, true)
 		# On a small landscape phone, labels appear for selected/current only to avoid visual clutter.
-		if w >= 1000.0 or selected or current:
+		if selected or current or (w >= 1100.0 and str(game.REALM_CATALOG.region(id).get("kind", "")) == "realm"):
 			var tag: String = str(point["title"])
 			var label_w: float = font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
 			var tx: float = clampf(pos.x - label_w * 0.5, 4.0, w - label_w - 4.0)
-			box(Rect2(tx, pos.y + 30.0, label_w, 23.0), Color(0.06, 0.14, 0.24, 0.86), Color(accent.r, accent.g, accent.b, 0.70), 1.0)
-			text(Vector2(tx + 8.0, pos.y + 47.0), tag, 12, Color("e6f2e9"))
+			var tag_y: float = pos.y - 53.0 if pos.y > h - 178.0 else pos.y + 30.0
+			box(Rect2(tx, tag_y, label_w, 23.0), Color(0.06, 0.14, 0.24, 0.86), Color(accent.r, accent.g, accent.b, 0.70), 1.0)
+			text(Vector2(tx + 8.0, tag_y + 17.0), tag, 12, Color("e6f2e9"))
 		# Invisible 56px minimum target is intentionally larger than visual marker.
 		menu_buttons.append({"rect": Rect2(pos - Vector2(28.0, 28.0), Vector2(56.0, 56.0)), "key":"atlas_node:" + id})
 	# Selection strip stays below exploration paths; no huge cards covering the map.
