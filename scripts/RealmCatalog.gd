@@ -282,6 +282,11 @@ const STORIES = {
 		"MIRA: Every restored realm has brought us to the Aether Nexus.",
 		"MIRA: Enter the Heart of the Core. The truth waits beyond the final portal."
 	],
+	"mirror_vault": [
+		"VERA: The mirror bridge remembers yesterday, but the wall yields only to today.",
+		"VERA: SHIFT at the first prism, cross the bridge in the PAST, then SHIFT at the second prism to PRESENT.",
+		"VERA: Reach the Chrono Relic beyond the unlocked timeline gate."
+	],
 	"echo_labyrinth": [
 		"ARCHIVIST SEN: The chamber remembers the hero's last ten seconds.",
 		"SEN: Touch the recorder, walk onto the glowing pressure plate, then hold it.",
@@ -625,7 +630,9 @@ const QUESTS = [
 	{"id": "q66", "title": "Traverse the Rootbound Upper Gallery", "event": "skyshard:rootcrypt", "target": 1, "region": "rootcrypt", "coins": 218, "exp": 119},
 	{"id": "q67", "title": "Reach the Tidal Temple's High Altar", "event": "skyshard:tide_temple", "target": 1, "region": "tide_temple", "coins": 230, "exp": 125},
 	{"id": "q68", "title": "Climb the Heart of the Core", "event": "skyshard:nexus_core", "target": 1, "region": "nexus_core", "coins": 242, "exp": 131},
-	{"id": "q69", "title": "Replay Your Shadow in the Echo Labyrinth", "event": "trial:echo_labyrinth", "target": 1, "region": "echo_labyrinth", "coins": 180, "exp": 95}
+	{"id": "q69", "title": "Replay Your Shadow in the Echo Labyrinth", "event": "trial:echo_labyrinth", "target": 1, "region": "echo_labyrinth", "coins": 180, "exp": 95},
+	{"id": "q70", "title": "Cross the Past Bridge and Restore the Chrono Relic", "event": "trial:mirror_shift", "target": 1, "region": "mirror_vault", "coins": 160, "exp": 90},
+	{"id": "q71", "title": "Find the Three Sonar-Only Ruins Glyphs", "event": "trial:sonar_glyphs", "target": 1, "region": "ruins", "coins": 165, "exp": 100}
 ]
 
 static func region(id: String) -> Dictionary:
