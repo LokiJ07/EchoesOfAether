@@ -105,10 +105,10 @@ func run_tests() -> void:
 	game.record_quest_event("kill:moth", 3)
 	if not ok(game.quest_claimed.has(focus_id) and game.tracked_quest_id == "", "Quest completion clears stale tracked objective"): return
 	if not ok(not game.pinned_quest().is_empty(), "HUD automatically falls back to next unfinished quest"): return
-	game.hud.menu_buttons = [{"rect": Rect2(35, 40, 150, 44), "key": "pin:q06"}]
+	game.hud.menu_buttons = [{"rect": Rect2(35, 40, 150, 44), "key": "pin:q07"}]
 	game.state = "quests"
 	game.hud.handle_menu_press(Vector2(90, 60))
-	if not ok(game.tracked_quest_id == "q06", "Journal can choose another target"): return
+	if not ok(game.tracked_quest_id == "q07", "Journal can choose another target"): return
 	game.hud.handle_menu_press(Vector2(90, 60))
 	if not ok(game.tracked_quest_id == "", "Tap UNPIN to restore automatic objective selection"): return
 	print("PASS: tracked RPG journal quests, real touch targets, persistence and automatic completion")
