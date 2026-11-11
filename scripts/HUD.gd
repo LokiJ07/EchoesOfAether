@@ -418,6 +418,10 @@ func _draw() -> void:
 		draw_hud_editor(w, h)
 		return
 	if game.state == "playing":
+		if game.current_realm_id == "echo_labyrinth" and game.echo_chamber != null:
+			var echo_panel: Rect2 = Rect2(w * 0.5 - 250.0, h - 58.0, 500.0, 38.0)
+			box(echo_panel, Color(0.07, 0.13, 0.22, 0.75), Color("75cfe0"), 1.0)
+			centered(w * 0.5, h - 33.0, game.echo_chamber.status_text(), 13, Color("d4f9ff"))
 		draw_boss_health(w)
 		if game.combo_stage > 0 and game.combo_timer > 0.0:
 			centered(w - 250.0, h - 356.0, "SWORD COMBO  %d / 3" % game.combo_stage, 18, Color("ffe6ab"))
@@ -512,7 +516,7 @@ func draw_mobile_controls(w: float, h: float) -> void:
 	control_button(c["potion"], 37, "+", "POTION %d" % game.potions, Color("f5a2a2"))
 	if game.nearby_npc() != "" or game.state == "hud_edit":
 		var target: String = game.nearby_npc()
-		var label: String = "SOLVE" if target in ["shrine", "ember_brazier", "trial_puzzle"] else ("RESCUE" if target == "emberling" else ("TRAVEL" if target == "portal" else ("OPEN" if target in ["cache", "secret"] else ("TRAIN" if target == "scout" else ("SHOP" if target == "merchant" else "TALK")))))
+		var label: String = "RECORD" if target == "echo_record" else ("SOLVE" if target in ["shrine", "ember_brazier", "trial_puzzle"] else ("RESCUE" if target == "emberling" else ("TRAVEL" if target == "portal" else ("OPEN" if target in ["cache", "secret"] else ("TRAIN" if target == "scout" else ("SHOP" if target == "merchant" else "TALK"))))))
 		control_button(c["interact"], 40, "!", label, Color("f3db98"))
 
 func modal(w: float, h: float, heading: String, width: float = 650.0, height: float = 470.0) -> Rect2:
