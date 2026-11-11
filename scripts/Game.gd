@@ -2375,6 +2375,15 @@ func mobile_action_at(pos: Vector2) -> String:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key = event.keycode
+		# Storybook pop-ups consume keyboard input; movement cannot bypass a cutscene.
+		if dialogue != "" and state == "playing":
+			if key in [KEY_ENTER, KEY_SPACE, KEY_E]:
+				advance_story_dialogue()
+				return
+			if key == KEY_ESCAPE:
+				story_queue.clear()
+				dialogue = ""
+				return
 		if key == KEY_ESCAPE or key == KEY_P:
 			if state == "playing":
 				state = "pause"
