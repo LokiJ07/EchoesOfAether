@@ -24,7 +24,7 @@ func run_tests() -> void:
 	game.dialogue = ""
 	var echo = game.echo_chamber
 	if not check(echo != null and echo.in_labyrinth() and not echo.completed, "Fresh shadow challenge exists in real portal dungeon"): return
-	if not check(game.REALM_CATALOG.QUESTS.size() == 69, "Old 68 quests remain and shadow quest added"): return
+	if not check(game.REALM_CATALOG.QUESTS.size() >= 71, "All 68 legacy quests plus three v9 world quests remain"): return
 
 	# Collision must stop the player even in midair/dash; no invisible bypass.
 	game.player_pos = Vector2(echo.GATE_X + 115.0, game.FLOOR_Y - 60.0)
