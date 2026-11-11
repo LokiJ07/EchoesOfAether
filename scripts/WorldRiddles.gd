@@ -88,7 +88,8 @@ func mirror_gap_at(x: float) -> bool:
 	return in_mirror() and not mirror_completed and x >= BRIDGE_LEFT and x <= BRIDGE_RIGHT and not MECHANICS.era_obstacle_passable("bridge", era)
 
 func mirror_wall_open() -> bool:
-	return mirror_completed or (bridge_crossed and MECHANICS.era_obstacle_passable("ancient_gate", era))
+	# Crossing the restored PAST bridge is necessary, but only PRESENT can open the chronogate.
+	return mirror_completed or (bridge_crossed and era == "present")
 
 func block_mirror_wall(old_x: float) -> void:
 	if not live_mirror() or mirror_wall_open():
