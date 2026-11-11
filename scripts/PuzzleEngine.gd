@@ -67,6 +67,13 @@ static func make(id: String, puzzle_type: String) -> Dictionary:
 			var answer: Array = [2, 3, 1] if id == "wind_observatory" else [3, 1, 2]
 			data["dials"] = [0, 0, 0]
 			data["clues"] = [int(answer[0]) + int(answer[1]), int(answer[1]) + int(answer[2]), int(answer[0]) + int(answer[2])]
+		"scale":
+			data["weights"] = [2, 3, 2, 3]
+			data["target"] = 5
+			data["placements"] = [0, 0, 0, 0] # 0 off, 1 left, 2 right
+		"melody":
+			data["sequence"] = [2, 0, 3, 1, 2]
+			data["progress"] = 0
 		"memory":
 			data["sequence"] = [2, 0, 3, 1, 2] if id == "bog_lanterns" else [1, 3, 0, 2, 1, 0]
 			data["progress"] = 0
@@ -80,7 +87,17 @@ static func is_solved(data: Dictionary) -> bool:
 			var d: Array = data.get("dials", [])
 			var clues: Array = data.get("clues", [])
 			return d.size() == 3 and clues.size() == 3 and int(d[0])+int(d[1]) == int(clues[0]) and int(d[1])+int(d[2]) == int(clues[1]) and int(d[0])+int(d[2]) == int(clues[2])
-		"memory": return int(data.get("progress", 0)) >= data.get("sequence", []).size()
+		"scale":
+			var placements: Array = data.get("placements", [])
+			var weights: Array = data.get("weights", [])
+			if placements.size() != weights.size(): return false
+			var left := 0
+			var right := 0
+			for i in range(weights.size()):
+				if int(placements[i]) == 1: left += int(weights[i])
+				if int(placements[i]) == 2: right += int(weights[i])
+			return left == int(data.get("target", 0)) and right == int(data.get("target", 0))
+		"melody", "memory": return int(data.get("progress", 0)) >= data.get("sequence", []).size()
 	return false
 
 static func press(data: Dictionary, cell: int) -> bool:
@@ -110,7 +127,13 @@ static func press(data: Dictionary, cell: int) -> bool:
 			dials[cell] = (int(dials[cell]) + 1) % 4
 			data["dials"] = dials
 			data["message"] = "SATISFY ALL THREE PAIR-SUM CLUES."
-		"memory":
+		"scale":
+			var placements: Array = data["placements"]
+			if cell < 0 or cell >= placements.size(): return false
+			placements[cell] = (int(placements[cell]) + 1) % 3
+			data["placements"] = placements
+			data["message"] = "TAP WEIGHTS: SHELF > LEFT PAN > RIGHT PAN. BALANCE BOTH AT 5."
+		"melody", "memory":
 			if cell < 0 or cell >= 4: return false
 			var seq: Array = data["sequence"]
 			var progress: int = int(data["progress"])
@@ -136,6 +159,12 @@ static func hint(data: Dictionary) -> String:
 		"logic":
 			var c: Array = data["clues"]
 			return "LEFT+MIDDLE=%d, MIDDLE+RIGHT=%d, LEFT+RIGHT=%d." % [c[0], c[1], c[2]]
+		"scale":
+			return "PLACE 2+3 ON EACH PAN. TAP EACH WEIGHT TO CYCLE SHELF, LEFT, RIGHT."
+		"melody":
+			var seq: Array = data["sequence"]
+			var next: int = int(data["progress"])
+			return "NEXT BELL: " + COLOURS[int(seq[next])] if next < seq.size() else "MELODY COMPLETE."
 		"memory":
 			var seq: Array = data["sequence"]
 			var next: int = int(data["progress"])
