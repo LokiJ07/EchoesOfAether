@@ -882,7 +882,7 @@ func draw_v6_puzzle(w: float, h: float) -> void:
 			for glyph in data["sequence"]:
 				preview += str(colours[int(glyph)]) + "   "
 		centered(grid_left + 181.0, grid_top + 63.0, preview, 13, Color("ffdcad"))
-		centered(grid_left + 183.0, grid_top + 239.0, "NOTES: %d / %d" if kind == "melody" else "CORRECT: %d / %d" % [int(data["progress"]), data["sequence"].size()], 17, Color("a8f2cf"))
+		centered(grid_left + 183.0, grid_top + 239.0, ("NOTES: %d / %d" if kind == "melody" else "CORRECT: %d / %d") % [int(data["progress"]), data["sequence"].size()], 17, Color("a8f2cf"))
 	var info_x: float = box_rect.position.x + panel_w * 0.57
 	var info_y: float = grid_top + 18.0
 	text(Vector2(info_x, info_y), "CHAMBER RULES", 20, Color("f4d9a4"))
