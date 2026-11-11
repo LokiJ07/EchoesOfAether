@@ -166,6 +166,7 @@ var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
 var trial_hint_text := ""
 var trial_preview_time := 0.0
+var last_chime_preview_index := -1
 var ember_boss_defeated := false
 var ember_braziers: Array = []
 var ember_puzzle_index := -1
@@ -395,8 +396,18 @@ func draw_emberfall_scenery(left: float, right: float) -> void:
 		if float(plaque["x"]) > left and float(plaque["x"]) < right:
 			draw_label(Vector2(float(plaque["x"]), 182), str(plaque["name"]), 25, Color("ffdeb1"))
 
+func play_chime(note: int) -> void:
+	if not sound_on or sfx == null: return
+	var clip = load("res://assets/fx_skill.wav")
+	if clip == null: return
+	var pitches: Array = [0.85, 1.0, 1.14, 1.35]
+	sfx.stream = clip
+	sfx.pitch_scale = float(pitches[clampi(note, 0, pitches.size() - 1)])
+	sfx.play()
+
 func play_sfx(name: String) -> void:
 	if not sound_on: return
+	sfx.pitch_scale = 1.0
 	var clip = load("res://assets/fx_%s.wav" % name)
 	if clip != null:
 		sfx.stream = clip
@@ -603,6 +614,13 @@ func _physics_process(dt: float) -> void:
 	elapsed += dt
 	menu_drift += dt
 	trial_preview_time = maxf(0.0, trial_preview_time - dt)
+	# Four pitched notes replay the clue; matching symbols remain visible for players without audio.
+	if state == "v6_puzzle" and str(trial_puzzle.get("kind", "")) == "melody" and trial_preview_time > 0.0:
+		var seq: Array = trial_puzzle.get("sequence", [])
+		var note_index: int = clampi(int((5.0 - trial_preview_time) / 0.85), 0, seq.size() - 1) if not seq.is_empty() else -1
+		if note_index >= 0 and note_index != last_chime_preview_index:
+			last_chime_preview_index = note_index
+			play_chime(int(seq[note_index]))
 	healing_glow = maxf(0.0, healing_glow - dt)
 	level_up_glow = maxf(0.0, level_up_glow - dt)
 	hero_impact = maxf(0.0, hero_impact - dt)
@@ -1512,6 +1530,7 @@ func open_bonus_puzzle(id: String) -> bool:
 	trial_puzzle = PUZZLE_ENGINE.make(id, str(info["type"]))
 	trial_hint_text = "OPTIONAL TRIAL - HINT / RESTART / EXIT AVAILABLE"
 	trial_preview_time = 5.0
+	last_chime_preview_index = -1
 	touch_axis = 0.0
 	joystick_touch = -1
 	attack_touch.clear()
@@ -1544,6 +1563,8 @@ func open_trial_puzzle() -> bool:
 
 func press_trial_cell(cell: int) -> bool:
 	if state != "v6_puzzle" or trial_puzzle.is_empty(): return false
+	if str(trial_puzzle.get("kind", "")) == "melody" and cell >= 0 and cell < 4:
+		play_chime(cell)
 	var changed: bool = PUZZLE_ENGINE.press(trial_puzzle, cell)
 	if changed and bool(trial_puzzle.get("solved", false)):
 		finish_trial_puzzle()
@@ -1559,13 +1580,15 @@ func trial_restart() -> void:
 	var info: Dictionary = BONUS_TRIALS.get(trial_puzzle_id, {}) if BONUS_TRIALS.has(trial_puzzle_id) else REALM_CATALOG.TRIALS.get(trial_puzzle_id, {})
 	if info.is_empty(): return
 	trial_puzzle = PUZZLE_ENGINE.make(trial_puzzle_id, str(info["type"]))
-	trial_preview_time = 4.5
+	trial_preview_time = 5.0 if str(trial_puzzle.get("kind", "")) == "melody" else 4.5
+	last_chime_preview_index = -1
 	trial_hint_text = "PUZZLE RESTARTED. NO DAMAGE OR RESOURCE COST."
 
 func leave_trial_puzzle() -> void:
 	trial_puzzle_id = ""
 	trial_puzzle.clear()
 	trial_preview_time = 0.0
+	last_chime_preview_index = -1
 	trial_hint_text = ""
 	state = "playing"
 	touch_axis = 0.0
