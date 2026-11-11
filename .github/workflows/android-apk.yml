@@ -185,6 +185,42 @@ jobs:
           /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot-import.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|Failed to load script|ERROR:.*(parser|Parse|script))' /tmp/godot-import.log; then exit 1; fi
 
+      - name: Capture real Godot rendered screens for visual QA
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -eo pipefail
+          mkdir -p build
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x720x24" timeout 65s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --path . --rendering-method gl_compatibility --script res://tests/visual_capture.gd 2>&1 | tee /tmp/godot-visual.log
+          python3 - <<'PY'
+          from PIL import Image, ImageOps, ImageDraw
+          import base64, io
+          from pathlib import Path
+          files = sorted(Path('build').glob('visual_*.png'))
+          if len(files) < 4:
+              raise RuntimeError(f'Expected 4 visual captures, found {len(files)}')
+          thumbs = Image.new('RGB', (800, ((len(files)+1)//2)*266), '#19212d')
+          d = ImageDraw.Draw(thumbs)
+          for i,path in enumerate(files):
+              art = Image.open(path).convert('RGB')
+              art.thumbnail((394,236))
+              x=(i%2)*400+(400-art.width)//2
+              y=(i//2)*266+20
+              thumbs.paste(art,(x,y))
+              d.text(((i%2)*400+10,(i//2)*266+5),path.stem,fill='white')
+          buffer=io.BytesIO()
+          thumbs.save(buffer,'JPEG',quality=36,optimize=True)
+          print('V7_VISUAL_CONTACT_SHEET_BASE64='+base64.b64encode(buffer.getvalue()).decode(),flush=True)
+          PY
+
+      - name: Upload actual Godot visual QA frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: EchoesOfAether-visual-QA
+          path: build/visual_*.png
+          if-no-files-found: ignore
+
       - name: Run game headless smoke test
         shell: bash
         run: |
