@@ -2584,6 +2584,8 @@ func _draw() -> void:
 		var sy = -80.0 + float((i * 137) % 325)
 		var light = 0.2 + 0.3 * (0.5 + 0.5 * sin(elapsed * 1.9 + float(i)))
 		draw_circle(Vector2(sx, sy), 1.0 if i % 3 else 2.1, Color(0.74, 0.94, 1, light))
+	# v10 environment depth for every independent realm; drawn behind players and props.
+	draw_v10_realm_depth(left, right)
 	# Scenery: forest canopy, village, and ancient ruins.
 	if left < 1900.0:
 		for x in [190.0, 730.0, 1360.0, 1755.0]:
@@ -2848,6 +2850,87 @@ func _draw() -> void:
 		draw_circle(Vector2(7800, 120), 150.0, Color(0.7, 0.24, 1.0, 0.08))
 		draw_circle(Vector2(7800, 120), 56 + sin(elapsed * 2) * 7, Color(0.6, 0.46, 1, 0.13))
 
+
+func draw_v10_realm_depth(left: float, right: float) -> void:
+	# Universal light-weight 2.5D depth pass for all 27 realm scenes.
+	# Every object is culled to the camera and the active portal bounds;
+	# nothing here blocks controls, movement, or collision.
+	if graphics_quality == 0:
+		return
+	var realm: Dictionary = current_realm()
+	if realm.is_empty(): return
+	var start: float = float(realm["start"])
+	var end: float = float(realm["end"])
+	var tint: Color = Color(str(realm["sky"]))
+	var name: String = str(realm["id"])
+	var kind: String = str(realm["kind"])
+	var is_cavern: bool = kind in ["dungeon","trial"] or name in ["ruins", "crystal"]
+	var is_woods: bool = name in ["forest", "garden", "marsh", "rootcrypt", "verdant_vault", "mire_catacombs"]
+	var is_furnace: bool = name in ["ember", "cinder", "forge_engine"]
+	var first: int = maxi(0, int(floorf((maxf(start, left - 170.0) - start) / 390.0)))
+	var last: int = mini(int(ceilf((end - start) / 390.0)), int(ceilf((minf(end, right + 170.0) - start) / 390.0)))
+	for i in range(first, last + 1):
+		var px: float = start + float(i) * 390.0 + 150.0
+		if px < start + 65.0 or px > end - 75.0: continue
+		var stagger: float = float(i % 4) * 18.0
+		var far_dark: Color = tint.darkened(0.53)
+		far_dark.a = 0.54
+		var near_light: Color = tint.lightened(0.49)
+		near_light.a = 0.43
+		if is_cavern:
+			# Receding masonry arches, inset alcoves and extruded columns.
+			var top: float = 141.0 + stagger
+			draw_rect(Rect2(px - 112.0, top + 40.0, 224.0, 304.0), Color(far_dark.r,far_dark.g,far_dark.b,0.40))
+			draw_arc(Vector2(px, top + 109.0), 94.0, PI, TAU, 28, near_light, 10.0, true)
+			draw_arc(Vector2(px, top + 112.0), 74.0, PI, TAU, 28, Color(0.02,0.06,0.14,0.27), 10.0, true)
+			for side in [-1.0,1.0]:
+				var col_x: float = px + side * 106.0
+				draw_rect(Rect2(col_x - 15.0, top + 90.0, 30.0, 282.0), far_dark)
+				draw_rect(Rect2(col_x - 20.0, top + 86.0, 40.0, 11.0), near_light)
+				draw_rect(Rect2(col_x - 13.0, top + 91.0, 5.0, 258.0), Color(0.75,0.91,0.93,0.13))
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(px,top+135.0),Vector2(px+19.0,top+170.0),
+				Vector2(px,top+207.0),Vector2(px-19.0,top+170.0)]),
+				Color("76d2da") if i % 3 == 0 else Color("807db4"))
+			draw_rect(Rect2(px - 59.0, top + 271.0, 118.0, 8.0), near_light)
+		elif is_woods:
+			# Three overlapping canopy planes with roots and light scattering.
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(px-22.0,500.0),Vector2(px-6.0,278.0+stagger),
+				Vector2(px+19.0,280.0+stagger),Vector2(px+34.0,500.0)]),far_dark)
+			for j in range(5):
+				var angle: float = float(j) * TAU / 5.0
+				var xx: float = px + cos(angle) * 85.0
+				var yy: float = 271.0 + sin(angle) * 53.0 + stagger
+				draw_circle(Vector2(xx,yy),54.0,Color(near_light.r*0.61,near_light.g*0.89,near_light.b*0.73,0.26))
+				draw_circle(Vector2(xx+10.0,yy-11.0),27.0,Color(0.42,0.74,0.66,0.12))
+			draw_line(Vector2(px,350.0),Vector2(px-49.0,500.0),near_light,6.0)
+			draw_line(Vector2(px,362.0),Vector2(px+54.0,500.0),far_dark,8.0)
+		else:
+			# Stone terrace blocks and layered distant ramparts/rooflines.
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(px-155.0,463.0),Vector2(px-85.0,245.0+stagger),
+				Vector2(px-5.0,320.0+stagger),Vector2(px+70.0,218.0+stagger),
+				Vector2(px+154.0,461.0)]),
+				Color(near_light.r*0.61, near_light.g*0.62, near_light.b*0.73,0.40))
+			draw_rect(Rect2(px-85.0,337.0+stagger,170.0,151.0), far_dark)
+			draw_rect(Rect2(px-94.0,328.0+stagger,188.0,13.0),near_light)
+			for j in range(3):
+				var wx: float = px - 59.0 + float(j) * 59.0
+				draw_rect(Rect2(wx,358.0+stagger,27.0,65.0),Color(0.04,0.12,0.22,0.48))
+				draw_arc(Vector2(wx+13.5,358.0+stagger),13.5,PI,TAU,15,Color("b0d4dc"),2.0)
+		if is_furnace:
+			var glow_x: float = px + 47.0
+			draw_circle(Vector2(glow_x,405.0),38.0,Color(0.97,0.42,0.18,0.15))
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(glow_x-12.0,463.0),Vector2(glow_x,387.0+sin(elapsed)*8.0),
+				Vector2(glow_x+20.0,463.0)]),Color(0.96,0.55,0.23,0.29))
+		# Dim beams establish depth without bright overlays across the hero.
+		if i % 3 == 1:
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(px-13.0,65.0),Vector2(px+19.0,65.0),
+				Vector2(px+117.0,476.0),Vector2(px-114.0,476.0)]),
+				Color(0.60,0.93,0.94,0.034))
 
 func draw_expansion_scenery(left: float, right: float) -> void:
 	# All details are authored procedurally so the extra maps need no network assets.
