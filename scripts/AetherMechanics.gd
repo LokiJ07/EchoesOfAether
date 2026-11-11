@@ -14,6 +14,10 @@ static func record_frame(data: Dictionary, dt: float, position: Vector2, pressin
 	if not bool(data.get("recording", false)) or dt <= 0.0:
 		return
 	var elapsed: float = minf(LOOP_SECONDS, float(data.get("elapsed", 0.0)) + dt)
+	# Snap to the end when within floating-point epsilon. 100 x 0.1 seconds
+	# may accumulate as 9.999999999..., leaving the recording permanently open.
+	if elapsed >= LOOP_SECONDS - 0.0001:
+		elapsed = LOOP_SECONDS
 	var frames: Array = data.get("frames", [])
 	var last_time: float = -1.0 if frames.is_empty() else float(frames[-1]["t"])
 	if last_time < 0.0 or elapsed - last_time >= SAMPLE_STEP - 0.0001 or elapsed >= LOOP_SECONDS:
