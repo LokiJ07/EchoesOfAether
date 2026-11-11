@@ -33,7 +33,14 @@ func capture() -> void:
 	game.story_queue.clear()
 	game.dialogue = ""
 	await capture_frame(game, "moonhaven")
+	# v10: capture the actual illustrated level map, not a mockup.
+	game.state = "worldmap"
+	game.hud.atlas_selected = "forest"
+	await capture_frame(game, "v10_world_atlas")
+	game.state = "playing"
 	if game.enter_realm("forest"):
+		# First-visit story is automatically opened by enter_realm.
+		await capture_frame(game, "v10_storybook_dialogue")
 		game.story_queue.clear()
 		game.dialogue = ""
 		game.player_pos = Vector2(2920, game.FLOOR_Y)
@@ -58,5 +65,17 @@ func capture() -> void:
 		game.state = "playing"
 		game.open_trial_puzzle()
 		await capture_frame(game, "sliding_mural")
-	print("PASS: rendered five live Godot visual captures")
+	if game.enter_realm("echo_labyrinth"):
+		game.story_queue.clear()
+		game.dialogue = ""
+		game.player_pos = Vector2(game.echo_chamber.PLATE_X, game.FLOOR_Y)
+		game.update_camera()
+		await capture_frame(game, "v10_echo_labyrinth")
+	if game.enter_realm("mirror_vault"):
+		game.story_queue.clear()
+		game.dialogue = ""
+		game.player_pos = Vector2(game.world_riddles.PHASE_PRISMS[0], game.FLOOR_Y)
+		game.update_camera()
+		await capture_frame(game, "v10_mirror_vault")
+	print("PASS: rendered nine live Godot visual captures including atlas, portrait dialogue and new 2.5D dungeons")
 	quit(0)
