@@ -149,6 +149,14 @@ func run_tests() -> void:
 	game.dialogue = ""
 	var secrets: Array = game.secret_cache_positions(game.current_realm())
 	if not check(secrets.size() == 2, "Every exploration map exposes two hidden interactables"): return
+	# Hidden caches must not be inside bottomless pits or poisonous floor.
+	for region in catalog.REGIONS:
+		if region["kind"] == "hub": continue
+		for entry in game.secret_cache_positions(region):
+			var treasure_x: float = float(entry["x"])
+			if not check(game.ground_y(treasure_x) == game.FLOOR_Y, "Treasure is on reachable solid ground: " + str(entry["id"])): return
+			for pool in game.poison_pools:
+				if not check(treasure_x < pool.position.x - 90.0 or treasure_x > pool.end.x + 90.0, "Treasure never requires stepping into poison: " + str(entry["id"])): return
 	var secret_id: String = str(secrets[0]["id"])
 	game.player_pos = Vector2(float(secrets[0]["x"]), game.FLOOR_Y)
 	if not check(game.nearby_secret_cache() == secret_id, "Hidden cache has a real proximity interaction"): return

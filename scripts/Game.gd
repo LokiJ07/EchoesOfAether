@@ -267,11 +267,25 @@ func load_premium_art() -> void:
 func secret_cache_positions(region: Dictionary) -> Array:
 	if region.is_empty() or str(region["kind"]) == "hub": return []
 	var start_x: float = float(region["start"])
-	var width: float = float(region["end"]) - start_x
-	return [
-		{"id": str(region["id"]) + ":a", "x": start_x + width * 0.28},
-		{"id": str(region["id"]) + ":b", "x": start_x + width * 0.77}
-	]
+	var end_x: float = float(region["end"])
+	var width: float = end_x - start_x
+	var sites: Array = []
+	for slot in range(2):
+		var initial_x: float = start_x + width * (0.28 if slot == 0 else 0.77)
+		var safe_x: float = initial_x
+		for offset in [0.0, 145.0, -145.0, 290.0, -290.0]:
+			var candidate: float = clampf(initial_x + offset, start_x + 280.0, end_x - 280.0)
+			if ground_y(candidate) < FLOOR_Y: continue
+			var hazard: bool = false
+			for pool in poison_pools:
+				if candidate > pool.position.x - 90.0 and candidate < pool.end.x + 90.0:
+					hazard = true
+					break
+			if not hazard:
+				safe_x = candidate
+				break
+		sites.append({"id": str(region["id"]) + (":a" if slot == 0 else ":b"), "x": safe_x})
+	return sites
 
 func nearby_secret_cache() -> String:
 	for entry in secret_cache_positions(current_realm()):
