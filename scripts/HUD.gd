@@ -181,10 +181,14 @@ func handle_top_press(pos: Vector2) -> bool:
 
 func handle_menu_press(pos: Vector2) -> bool:
 	if game.dialogue != "":
-		game.dialogue = ""
+		game.advance_story_dialogue()
 		return true
 	for entry in menu_buttons:
 		if not entry["rect"].has_point(pos): continue
+		var code: String = str(entry["key"])
+		if code.begins_with("realm:"):
+			game.enter_realm(code.trim_prefix("realm:"))
+			return true
 		match entry["key"]:
 			"new": game.start_new_game()
 			"continue": game.continue_game()
@@ -211,6 +215,18 @@ func handle_menu_press(pos: Vector2) -> bool:
 			"portal2": game.portal_jump(2)
 			"portal3": game.portal_jump(3)
 			"portal4": game.portal_jump(4)
+			"portal_next": game.portal_page += 1
+			"portal_previous": game.portal_page = maxi(0, game.portal_page - 1)
+			"journal_next": game.journal_page += 1
+			"journal_previous": game.journal_page = maxi(0, game.journal_page - 1)
+			"open_portal_network":
+				game.portal_page = 0
+				game.state = "portals"
+			"dungeon_continue": game.state = "playing"
+			"dungeon_return":
+				var parent: String = str(game.current_realm().get("parent", "hub"))
+				game.enter_realm(parent)
+			"ending_continue": game.state = "playing"
 			"ember0": game.select_ember_rune(0)
 			"ember1": game.select_ember_rune(1)
 			"ember2": game.select_ember_rune(2)
@@ -371,7 +387,7 @@ func _draw() -> void:
 	if game.state == "ember_puzzle":
 		draw_ember_puzzle(w, h)
 		return
-	if game.state in ["playing", "hud_edit", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "pause", "settings", "victory", "realm_victory", "ember_victory", "defeat"]:
+	if game.state in ["playing", "hud_edit", "inventory", "quests", "shop", "trainer", "portals", "worldmap", "pause", "settings", "victory", "realm_victory", "ember_victory", "dungeon_victory", "v5_victory", "defeat"]:
 		draw_game_status(w, h)
 	if game.state == "hud_edit":
 		draw_mobile_controls(w, h)
@@ -400,6 +416,8 @@ func _draw() -> void:
 		"worldmap": draw_world_map(w, h)
 		"realm_victory": draw_realm_victory(w, h)
 		"ember_victory": draw_ember_victory(w, h)
+		"dungeon_victory": draw_dungeon_victory(w, h)
+		"v5_victory": draw_v5_victory(w, h)
 		"trainer": draw_trainer(w, h)
 		"pause": draw_pause(w, h)
 		"settings": draw_settings(w, h)
@@ -438,7 +456,7 @@ func draw_game_status(w: float, h: float) -> void:
 		var quest_label = ("TALK TO MIRA  (%d/3 SEEDS)" % game.seeds) if game.quest_stage == 0 else ("AETHER SEEDS %d/3" % game.seeds if game.quest_stage == 1 else "DEFEAT THE WARDEN")
 		centered(bounds.get_center().x, quest_y, quest_label, 14, Color("e4c891"))
 	else:
-		centered(bounds.get_center().x, quest_y, game.v2_quest_label(), 14, Color("a7f2bc"))
+		centered(bounds.get_center().x, quest_y, game.v5_story_label(), 14, Color("a7f2bc"))
 	for i in range(4):
 		var label = ["BAG", "QUEST", "MAP", "PAUSE"][i]
 		var key = ["bag", "quest", "map", "pause"][i]
@@ -494,9 +512,9 @@ func draw_main_menu(w: float, h: float) -> void:
 	centered(title_x, h * 0.24, "ECHOES OF AETHER", 37, Color("ffdfab"))
 	centered(title_x, h * 0.315, "S H A T T E R E D   R E A L M S", 19, Color("b6f6e9"))
 	draw_line(Vector2(w * 0.09, h * 0.35), Vector2(w * 0.48, h * 0.35), Color("eca96c"), 3.0)
-	centered(title_x, h * 0.405, "CHAPTER II  •  EMBERFALL CITADEL", 17, Color("ffdcaf"))
-	centered(title_x, h * 0.462, "NEW DUNGEON  •  5 PORTALS  •  20+ UNIQUE ENEMY SPRITES", 13, Color("d4e6e2"))
-	centered(title_x, h * 0.518, "A world of embers awaits beyond Shadowfen.", 16, Color("d4e1e6"))
+	centered(title_x, h * 0.405, "CHAPTER V  •  REALMS OF THE AETHER CORE", 17, Color("ffdcaf"))
+	centered(title_x, h * 0.462, "PORTAL WORLDS  •  DUNGEONS  •  30 QUESTS", 13, Color("d4e6e2"))
+	centered(title_x, h * 0.518, "A new story unfolds across the shattered realms.", 16, Color("d4e1e6"))
 	var right_width: float = minf(w * 0.34, 405.0)
 	var cx: float = w * 0.77
 	var top: float = h * 0.26
@@ -509,7 +527,7 @@ func draw_main_menu(w: float, h: float) -> void:
 	menu_button(Rect2(cx - right_width * 0.5, top + 20.0, right_width, btn_h), "CONTINUE JOURNEY", "continue", Color("78e1cf"))
 	menu_button(Rect2(cx - right_width * 0.5, top + 20.0 + btn_h + gap, right_width, btn_h), "NEW ADVENTURE", "new", Color("efb879"))
 	menu_button(Rect2(cx - right_width * 0.5, top + 20.0 + (btn_h + gap) * 2.0, right_width, btn_h), "SETTINGS & HUD", "settings", Color("b5b9ef"))
-	centered(cx, top + box_h - 30.0, "OFFLINE   •   NO ADS   •   v2.0", 14, Color("9ee5d1"))
+	centered(cx, top + box_h - 30.0, "OFFLINE   •   CUSTOM HUD   •   v5.0", 14, Color("9ee5d1"))
 	centered(w * 0.5, h - 19.0, "ORIGINAL PIXEL ART RPG   |   HIGGSFIELD WORLD ART   |   GODOT 4", 13, Color("d0e0da"))
 
 func draw_dialogue(w: float, h: float) -> void:
@@ -551,23 +569,27 @@ func draw_inventory(w: float, h: float) -> void:
 	menu_button(Rect2(w / 2.0 - 141, r.end.y - 61, 282, 44), "BACK TO ADVENTURE", "resume")
 
 func draw_quests(w: float, h: float) -> void:
-	var r = modal(w, h, "JOURNAL: THE FADING STAR & RELIC HUNTS", 840, 520)
-	var x = r.position.x + 39.0
-	var y = r.position.y + 99.0
-	var entries = ["Speak to Mira in Moonhaven", "Gather 3 Aether Seeds", "Pass the Ancient Gate", "Defeat the Star Warden"]
-	var done = [game.quest_stage >= 1, game.quest_stage >= 2, game.quest_stage >= 2, game.quest_stage >= 3]
-	for i in range(entries.size()):
-		text(Vector2(x, y + i * 31.0), ("[DONE] " if done[i] else "[    ] ") + entries[i], 17, Color("83e6bf") if done[i] else Color("f3e4c4"))
-	text(Vector2(x, y + 154.0), "OPTIONAL HUNTS  -  automatic one-time rewards", 17, Color("ebd596"))
-	var moth_done: bool = game.claimed_hunts.has("moth")
-	var guard_done: bool = game.claimed_hunts.has("sentinel")
-	text(Vector2(x, y + 190.0), ("[DONE] " if moth_done else "[    ] ") + "Dusk Moths: %d/3    Reward: 75 coins + 1 potion" % mini(3, game.hunted_moths), 16, Color("a2ead1") if moth_done else Color("e9e2cf"))
-	text(Vector2(x, y + 221.0), ("[DONE] " if guard_done else "[    ] ") + "Stone Sentinels: %d/2    Reward: 100 coins + 15 max HP" % mini(2, game.hunted_sentinels), 16, Color("a2ead1") if guard_done else Color("e9e2cf"))
-	text(Vector2(x, y + 269.0), "RELIC HUNT: %d / 6 caches opened  |  %d shards left" % [game.opened_caches.size(), game.relic_shards], 17, Color("f2dba4"))
-	text(Vector2(x, y + 297.0), "OPTIONAL ECHO PUZZLES: %d / 6 AWAKENED" % game.awakened_shrines.size(), 15, Color("a9eadf"))
-	text(Vector2(x, y + 326.0), "EMBERFALL BRAZIERS: %d / 3 RESTORED" % game.ember_braziers.size(), 15, Color("ffd49c"))
-	text(Vector2(x, y + 357.0), game.v2_quest_label(), 15, Color("b4e5f4"))
-	menu_button(Rect2(w / 2.0 - 139, r.end.y - 61, 278, 44), "BACK TO ADVENTURE", "resume")
+	var panel: Rect2 = modal(w, h, "ADVENTURER'S JOURNAL  •  REALM QUESTS", minf(900.0, w - 48.0), minf(540.0, h - 28.0))
+	var data: Array = game.REALM_CATALOG.QUESTS
+	var per_page := 6
+	var page_count: int = int(ceilf(float(data.size()) / float(per_page)))
+	game.journal_page = clampi(game.journal_page, 0, maxi(0, page_count - 1))
+	var from: int = game.journal_page * per_page
+	centered(w * 0.5, panel.position.y + 79.0, "MAIN STORY   •   %d / %d QUESTS COMPLETE   •   PAGE %d / %d" % [game.quest_claimed.size(), data.size(), game.journal_page + 1, page_count], 15, Color("afe4d7"))
+	for i in range(per_page):
+		var index: int = from + i
+		if index >= data.size(): break
+		var q: Dictionary = data[index]
+		var top: float = panel.position.y + 96.0 + float(i) * 58.0
+		var finished: bool = game.quest_claimed.has(q["id"])
+		var fill: Color = Color("1c413e") if finished else Color("1c3043")
+		box(Rect2(panel.position.x + 29.0, top, panel.size.x - 58.0, 51.0), fill, Color("678d85"), 1.0)
+		text(Vector2(panel.position.x + 43.0, top + 21.0), ("[DONE]  " if finished else "[  ]  ") + str(q["title"]), 17, Color("a4f0cd") if finished else Color("f0e6cd"))
+		text(Vector2(panel.position.x + 43.0, top + 43.0), str(q["region"]).to_upper() + "  •  %d/%d  •  +%d COINS" % [game.quest_progress(q), int(q["target"]), int(q["coins"])], 13, Color("a9cbcf"))
+	var footer_y: float = panel.end.y - 61.0
+	menu_button(Rect2(panel.position.x + 30.0, footer_y, 164.0, 43.0), "PREVIOUS", "journal_previous", Color("b1c9dc"))
+	menu_button(Rect2(panel.end.x - 194.0, footer_y, 164.0, 43.0), "NEXT PAGE", "journal_next", Color("b1c9dc"))
+	menu_button(Rect2(w * 0.5 - 133.0, footer_y, 266.0, 43.0), "BACK TO ADVENTURE", "resume", Color("89e0c6"))
 
 func draw_shop(w: float, h: float) -> void:
 	var r = modal(w, h, "LYRA'S STARLIT EMPORIUM", 743, 470)
@@ -591,47 +613,48 @@ func draw_trainer(w: float, h: float) -> void:
 	menu_button(Rect2(w / 2.0 - 137.0, r.end.y - 56.0, 274.0, 41.0), "LEAVE TRAINING", "leave_trainer")
 
 func draw_portal_network(w: float, h: float) -> void:
-	var panel: Rect2 = modal(w, h, "AETHER PORTAL NETWORK", minf(880.0, w - 44.0), minf(535.0, h - 30.0))
-	centered(w * 0.5, panel.position.y + 99.0, "Visit each realm to unlock fast travel. Your progress is preserved.", 15, Color("a7e8d8"))
-	var cell_width: float = (panel.size.x - 110.0) * 0.5
-	for i in range(game.PORTAL_NAMES.size()):
-		var col: int = i % 2
-		var row_id: int = int(i / 2)
-		var x: float = panel.position.x + 38.0 + float(col) * (cell_width + 32.0)
-		var y: float = panel.position.y + 121.0 + float(row_id) * 103.0
-		if bool(game.portal_unlocked[i]):
-			menu_button(Rect2(x, y, cell_width, 63.0), str(game.PORTAL_NAMES[i]), "portal%d" % i,
-				Color("ffa977") if i == 4 else Color("88e6d3"))
+	var panel: Rect2 = modal(w, h, "AETHER PORTAL GATES  •  INDEPENDENT REALMS", minf(880.0, w - 44.0), minf(550.0, h - 24.0))
+	var data: Array = game.REALM_CATALOG.REGIONS
+	var per_page := 5
+	var total_pages: int = int(ceilf(float(data.size()) / float(per_page)))
+	game.portal_page = clampi(game.portal_page, 0, total_pages - 1)
+	centered(w * 0.5, panel.position.y + 85.0, "ENTER A GATE TO LOAD A SEPARATE REALM SCENE   •   PAGE %d/%d" % [game.portal_page + 1, total_pages], 14, Color("addfdd"))
+	for j in range(per_page):
+		var index: int = game.portal_page * per_page + j
+		if index >= data.size(): break
+		var region: Dictionary = data[index]
+		var y: float = panel.position.y + 101.0 + float(j) * 73.0
+		var accessible: bool = game.is_realm_unlocked(str(region["id"]))
+		var title: String = str(region["name"]) + ("  [DUNGEON]" if region["kind"] == "dungeon" else "")
+		if accessible:
+			menu_button(Rect2(panel.position.x + 38.0, y, panel.size.x - 76.0, 59.0), title, "realm:" + str(region["id"]),
+				Color("f4b883") if region["kind"] == "dungeon" else Color("88e6d3"))
 		else:
-			var r: Rect2 = Rect2(x, y, cell_width, 63.0)
-			box(r, Color("1d2937"), Color("59636e"), 1.0)
-			centered(x + cell_width * 0.5, y + 36, "LOCKED - %s" % game.PORTAL_NAMES[i], 16, Color("929da4"))
-		text(Vector2(x + 12.0, y + 83.0), "FAST TRAVEL READY" if game.portal_unlocked[i] else "CLEAR PREVIOUS REALM", 13,
-			Color("9bddc8") if game.portal_unlocked[i] else Color("8494a5"))
-	menu_button(Rect2(w * 0.5 - 153.0, panel.end.y - 57.0, 306.0, 43.0), "RETURN TO ADVENTURE", "resume")
+			var rr: Rect2 = Rect2(panel.position.x + 38.0, y, panel.size.x - 76.0, 59.0)
+			box(rr, Color("212c36"), Color("6d7782"), 1.0)
+			centered(w * 0.5, y + 34.0, "LOCKED  •  " + title, 16, Color("91a2ae"))
+	var footer_y: float = panel.end.y - 57.0
+	menu_button(Rect2(panel.position.x + 28.0, footer_y, 158.0, 43.0), "PREVIOUS", "portal_previous")
+	menu_button(Rect2(panel.end.x - 186.0, footer_y, 158.0, 43.0), "NEXT", "portal_next")
+	menu_button(Rect2(w * 0.5 - 145.0, footer_y, 290.0, 43.0), "CLOSE PORTALS", "resume", Color("efb8a9"))
 
 func draw_world_map(w: float, h: float) -> void:
-	var panel: Rect2 = modal(w, h, "REALM ATLAS — SHATTERED AETHER", minf(915.0, w - 44.0), 495.0)
-	centered(w * 0.5, panel.position.y + 99.0, "A CONNECTED ADVENTURE — WEST TO EAST", 17, Color("e9d29c"))
-	var xs := [0.0, 1900.0, 4750.0, 8400.0, 10800.0, 12900.0, 15800.0, 19800.0]
-	var names := ["MOONHAVEN", "WHISPERWOOD", "SUNKEN RUINS", "CRYSTAL", "SKY", "SHADOWFEN", "EMBERFALL", "CINDER VAULT"]
-	var progress: float = clampf(game.player_pos.x / game.WORLD_WIDTH, 0.0, 1.0)
-	var left: float = panel.position.x + 66.0
-	var right: float = panel.end.x - 65.0
-	var width: float = right - left
-	var y: float = panel.position.y + 201.0
-	draw_rect(Rect2(left, y, width, 12), Color("203b48"))
-	draw_rect(Rect2(left, y, progress * width, 12), Color("78d8ca"))
-	for i in range(xs.size()):
-		var px: float = left + float(xs[i]) / game.WORLD_WIDTH * width
-		draw_circle(Vector2(px, y + 6), 9.0, Color("f5a36a") if i >= 6 else Color("a4dcd4"))
-		var label_y: float = y + (48.0 if i % 2 == 0 else -30.0)
-		text(Vector2(px - 36.0, label_y), names[i], 12, Color("e4e5db"))
-	centered(w * 0.5, panel.position.y + 334.0,
-		"DISCOVERED PORTALS %d / %d   •   %s" % [game.unlocked_portal_count(), game.PORTAL_NAMES.size(), game.area_name()],
-		15, Color("b0eee4"))
-	centered(w * 0.5, panel.position.y + 373.0, game.v2_quest_label(), 15, Color("ffdda9"))
-	menu_button(Rect2(w * 0.5 - 152.0, panel.end.y - 59.0, 304.0, 44.0), "BACK TO ADVENTURE", "resume")
+	var panel: Rect2 = modal(w, h, "ATLAS  •  THE SHATTERED AETHER CORE", minf(895.0, w - 44.0), minf(525.0, h - 26.0))
+	centered(w * 0.5, panel.position.y + 91.0, "SEPARATE REALM SCENES  •  PORTAL TRAVEL  •  DISCOVERIES", 16, Color("ebd69b"))
+	var realms: Array = game.REALM_CATALOG.regions_of_kind("realm")
+	var columns := 3
+	var item_width: float = (panel.size.x - 110.0) / 3.0
+	for i in range(realms.size()):
+		var reg: Dictionary = realms[i]
+		var x: float = panel.position.x + 39.0 + float(i % columns) * (item_width + 16.0)
+		var y: float = panel.position.y + 112.0 + float(floori(float(i) / float(columns))) * 83.0
+		var unlocked: bool = game.is_realm_unlocked(str(reg["id"]))
+		box(Rect2(x, y, item_width, 70.0), Color("253e47") if unlocked else Color("202c39"), Color("7cc5b7") if unlocked else Color("576371"), 1.2)
+		text(Vector2(x + 8.0, y + 28.0), str(reg["name"]), 14, Color("ebdfc3") if unlocked else Color("90a0ae"))
+		text(Vector2(x + 8.0, y + 49.0), "VISITED" if game.discovered_realm_ids.has(reg["id"]) else ("AVAILABLE" if unlocked else "LOCKED"), 12, Color("a7d8cd"))
+	centered(w * 0.5, panel.end.y - 103.0, "%d / %d DUNGEONS CLEARED     •     %d / %d QUESTS" % [game.dungeon_clears.size(), game.REALM_CATALOG.DUNGEON_BOSSES.size(), game.quest_claimed.size(), game.quest_total()], 15, Color("b9f0d8"))
+	menu_button(Rect2(w * 0.5 - 260.0, panel.end.y - 65.0, 245.0, 44.0), "OPEN PORTAL GATES", "open_portal_network", Color("8be4d1"))
+	menu_button(Rect2(w * 0.5 + 15.0, panel.end.y - 65.0, 245.0, 44.0), "RETURN", "resume", Color("dcb69d"))
 
 func draw_realm_victory(w: float, h: float) -> void:
 	var panel := modal(w, h, "THE REALMS AWAKEN", 705, 425)
@@ -639,6 +662,21 @@ func draw_realm_victory(w: float, h: float) -> void:
 	centered(w / 2.0, panel.position.y + 168.0, "All three new worlds are free to explore again.", 17, Color("a5d4eb"))
 	menu_button(Rect2(w / 2.0 - 210, panel.position.y + 219, 420, 59), "CONTINUE EXPLORING", "explore_again")
 	menu_button(Rect2(w / 2.0 - 210, panel.position.y + 298, 420, 54), "RETURN TO MOONHAVEN", "village")
+
+func draw_dungeon_victory(w: float, h: float) -> void:
+	var panel: Rect2 = modal(w, h, "DUNGEON RESTORED — GUARDIAN DEFEATED", minf(750.0, w - 40.0), minf(380.0, h - 24.0))
+	centered(w * 0.5, panel.position.y + 116.0, game.area_name() + " IS SAVED", 21, Color("d3f8de"))
+	centered(w * 0.5, panel.position.y + 170.0, "+175 COINS  •  +1 RELIC SHARD  •  +8 MAX HP", 17, Color("f2dcaa"))
+	centered(w * 0.5, panel.position.y + 208.0, "Your reward and quest records are saved automatically.", 14, Color("add7d9"))
+	menu_button(Rect2(w * 0.5 - 274.0, panel.end.y - 84.0, 250.0, 49.0), "CONTINUE EXPLORING", "dungeon_continue", Color("84dccc"))
+	menu_button(Rect2(w * 0.5 + 24.0, panel.end.y - 84.0, 250.0, 49.0), "RETURN THROUGH GATE", "dungeon_return", Color("f0b988"))
+
+func draw_v5_victory(w: float, h: float) -> void:
+	var panel: Rect2 = modal(w, h, "THE TRUE AETHER CORE IS RESTORED", minf(810.0, w - 40.0), minf(415.0, h - 24.0))
+	centered(w * 0.5, panel.position.y + 132.0, "The Nexus Echo has fallen. All realms can breathe again.", 19, Color("c9ffee"))
+	centered(w * 0.5, panel.position.y + 190.0, "Your story, equipment, friends and quest progress are preserved.", 16, Color("f1d8ad"))
+	centered(w * 0.5, panel.position.y + 236.0, "%d / %d quests completed  |  %d / %d dungeons restored" % [game.quest_claimed.size(), game.quest_total(), game.dungeon_clears.size(), game.REALM_CATALOG.DUNGEON_BOSSES.size()], 16, Color("addce0"))
+	menu_button(Rect2(w * 0.5 - 208.0, panel.end.y - 89.0, 416.0, 56.0), "EXPLORE THE REALMS AGAIN", "ending_continue", Color("94e5d1"))
 
 func draw_pause(w: float, h: float) -> void:
 	var r = modal(w, h, "JOURNEY PAUSED", 507, 477)

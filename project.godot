@@ -5,7 +5,7 @@ config_version=5
 config/name="Echoes of Aether"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.5", "GL Compatibility")
-config/description="Shattered Realms: Emberfall Citadel, Cinder Vault and companions"
+config/description="Realms of the Aether Core: portal-based RPG, independent dungeons and quests"
 config/icon="res://assets/icon.png"
 
 [display]
@@ -37,4 +37,4 @@ pointing/emulate_mouse_from_touch=false
 2d/default_gravity=980.0
 
 [application/config]
-version="2.0.0"
+version="5.0.0"

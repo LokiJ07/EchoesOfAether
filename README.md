@@ -1,3 +1,17 @@
+# ECHOES OF AETHER — v5.0 PORTAL RPG MILESTONE
+
+**Developed from the v3 + v4 + v5 roadmap.** The 65k internal coordinate world is now split into **19 real Godot PackedScene destinations** with individual camera bounds and interactable portal gates. Players no longer walk across visible seams between realms. The old world-space offsets stay private to preserve local Android saves. The new Journal tracks **30 one-time quests**, eight additional dungeon guardians have encounter rooms, and bosses rotate through four attack patterns instead of repeating a single projectile fan.
+
+**Playable locations:** Moonhaven hub, Whisperwood, Sunken Ruins, Crystal Hollow, Celestial Highlands, Shadowfen, Emberfall, Cinder Vault, Abyssal Depths, Temple of the Tide, Everdawn Gardens, Verdant Sanctum, Aether Nexus, Rootbound Crypt, Mirror Vault, Gale Spire, Mire Catacombs, Echo Labyrinth and Heart of the Core. See [V5 Master Plan](docs/V5_MASTER_PLAN.md) for the full feature matrix and follow-on polish.
+
+**Progression:** Start in Moonhaven; the first forest gate is accessible right away. Explore separate places, talk to their local lore NPCs, complete real kill/rescue/visit/boss missions, enter optional dungeons, claim unique rewards and unlock Abyssal → Everdawn → Aether Nexus via the guardian chain. Existing v1/v2 equipment, coins, quests, relics, portals and custom HUD positions continue through save migration.
+
+**Art status:** The current milestone reuses existing, already imported Higgsfield world art and monster sprites, recolored and layered with Godot scenery for new regions. Newly requested Higgsfield images were **not generated** because the connected account reported insufficient credits. Original dedicated Abyssal/Garden/Nexus art and more elaborate authored dungeon interiors are documented follow-on items, not claimed as complete.
+
+**Release quality:** Each source commit triggers GitHub CI for Godot import, old gameplay tests, v5 scene/quest/AI/endgame tests, and Android APK export with original package ID and signing certificate. An Android physical-device playtest is still needed for actual visuals and touchscreen comfort.
+
+---
+
 # ECHOES OF AETHER — v2.0 SHATTERED REALMS (EMBERFALL MILESTONE)
 
 **Status:** First complete playable v2.0 chapter — Emberfall Citadel + Cinder Vault dungeon, not yet the Abyssal Depths or Everdawn Gardens. The longer v2 roadmap is documented below; new lands will only be called playable once implemented and CI-verified.

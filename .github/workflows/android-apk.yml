@@ -121,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_VERSION_CODE=$((GITHUB_RUN_NUMBER + 1))
-          BUILD_VERSION_NAME="2.0.${GITHUB_RUN_NUMBER}"
+          BUILD_VERSION_NAME="5.0.${GITHUB_RUN_NUMBER}"
           export BUILD_VERSION_CODE BUILD_VERSION_NAME
           python3 - <<'PY'
           import os
@@ -202,6 +202,17 @@ jobs:
           grep -Fq 'PASS: chapter victory, multi-phase Cinder Warden and saved boss clear' /tmp/godot-v2.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V2 TEST FAILED)' /tmp/godot-v2.log; then exit 1; fi
 
+      - name: Verify v5 portal worlds, dungeon scenes, 30 RPG quests, AI rotations and save migration
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v5_realms.gd 2>&1 | tee /tmp/godot-v5.log
+          grep -Fq 'PASS: 19 separate portal PackedScenes, non-seam cameras, optional dungeon guardian and story' /tmp/godot-v5.log
+          grep -Fq 'PASS: 30 persistent multi-realm quests with one-time rewards and story progress' /tmp/godot-v5.log
+          grep -Fq 'PASS: unique combat patterns, Abyssal Depths, Everdawn, Aether Nexus, final boss and persistence' /tmp/godot-v5.log
+          grep -Fq 'PASS: safe v2 save migration, fixed signing identity and unchanged custom control settings' /tmp/godot-v5.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V5 FAILED)' /tmp/godot-v5.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -254,4 +265,5 @@ jobs:
             /tmp/godot-v06.log
             /tmp/godot-v1.log
             /tmp/godot-v2.log
+            /tmp/godot-v5.log
           if-no-files-found: ignore
