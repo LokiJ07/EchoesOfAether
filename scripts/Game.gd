@@ -8,6 +8,7 @@ const V5_SAVE_VERSION := 50
 const V6_SAVE_VERSION := 60
 const PUZZLE_ENGINE = preload("res://scripts/PuzzleEngine.gd")
 const ECHO_CHAMBER = preload("res://scripts/EchoLabyrinth.gd")
+const WORLD_RIDDLES = preload("res://scripts/WorldRiddles.gd")
 const BONUS_TRIALS = {
 	"gale_chimes": {"realm": "gale_spire", "name": "SKYWARD CHIME ALTAR", "type": "melody", "reward": 115, "offset": 1350.0},
 	"tide_scales": {"realm": "tide_temple", "name": "TWIN TIDE BALANCES", "type": "scale", "reward": 145, "offset": 1350.0}
@@ -164,6 +165,7 @@ var skyshards_collected: Array = []
 var trial_completed: Array = []
 var bonus_trial_completed: Array = []
 var echo_chamber
+var world_riddles
 var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
 var trial_hint_text := ""
@@ -229,6 +231,8 @@ func _ready() -> void:
 	load_realm_stage("hub")
 	echo_chamber = ECHO_CHAMBER.new()
 	add_child(echo_chamber)
+	world_riddles = WORLD_RIDDLES.new()
+	add_child(world_riddles)
 	camera.position = Vector2(575, 316)
 	camera.make_current()
 	music = AudioStreamPlayer.new()
@@ -609,6 +613,8 @@ func add_enemy(kind: String, x: float) -> void:
 		"pattern": 0, "special_timer": 0.0, "charging": 0.0, "shielded": false})
 
 func ground_y(x: float) -> float:
+	if world_riddles != null and world_riddles.mirror_gap_at(x):
+		return -1.0
 	for pit in traps:
 		if x > pit.position.x + 4.0 and x < pit.end.x - 4.0:
 			return -1.0
@@ -659,6 +665,7 @@ func _physics_process(dt: float) -> void:
 		update_moving_platforms(dt)
 		update_player(dt)
 		echo_chamber.update_chamber(dt)
+		world_riddles.update_events(dt)
 		update_enemies(dt)
 		update_projectiles(dt)
 		update_loot(dt)
@@ -709,6 +716,8 @@ func update_player(dt: float) -> void:
 	player_pos.x = clampf(player_pos.x, area_min, area_max)
 	if echo_chamber != null:
 		echo_chamber.block_player(old_x)
+	if world_riddles != null:
+		world_riddles.block_mirror_wall(old_x)
 	# Every realm is a sealed scene. Walking cannot expose the neighboring art seam.
 	if absf(player_pos.x - area_min) < 1.0 or absf(player_pos.x - area_max) < 1.0:
 		velocity.x = 0.0
@@ -1475,6 +1484,8 @@ func enter_realm(id: String) -> bool:
 		return false
 	if echo_chamber != null:
 		echo_chamber.reset_runtime()
+	if world_riddles != null:
+		world_riddles.reset_runtime()
 	load_realm_stage(id)
 	player_pos = Vector2(float(destination["arrival"]), FLOOR_Y)
 	checkpoint_x = player_pos.x
@@ -1880,6 +1891,10 @@ func nearby_npc() -> String:
 	if nearby_trial_pedestal() or nearby_bonus_pedestal() != "": return "trial_puzzle"
 	if nearby_story_npc(): return "story"
 	if echo_chamber != null and echo_chamber.near_recorder(): return "echo_record"
+	if world_riddles != null:
+		if world_riddles.near_phase_prism(): return "phase_shift"
+		if world_riddles.near_visible_sigil() >= 0: return "sonar_glyph"
+		if world_riddles.near_sonar_tower(): return "sonar_pulse"
 	if nearby_portal_index() >= 0: return "portal"
 	if nearby_ember_brazier() >= 0: return "ember_brazier"
 	if expansion_completed and not emberling_unlocked and absf(player_pos.x - 16870.0) < 105.0: return "emberling"
@@ -1897,6 +1912,8 @@ func interact() -> void:
 		collect_secret_cache()
 		return
 	if echo_chamber != null and echo_chamber.try_start_recording():
+		return
+	if world_riddles != null and world_riddles.try_interact():
 		return
 	if nearby_trial_pedestal():
 		open_trial_puzzle()
@@ -2040,6 +2057,7 @@ func start_new_game() -> void:
 	bonus_trial_completed.clear()
 	echo_chamber.completed = false
 	echo_chamber.reset_runtime()
+	world_riddles.reset_progress()
 	secret_caches.clear()
 	skyshards_collected.clear()
 	trial_puzzle.clear()
@@ -2119,6 +2137,8 @@ func save_game() -> void:
 		"active_realm": current_realm_id, "quest_counts": quest_counts,
 		"trial_completed": trial_completed, "bonus_trial_completed": bonus_trial_completed,
 		"echo_trial_complete": echo_chamber.completed,
+		"mirror_trial_complete": world_riddles.mirror_completed,
+		"sonar_trial_complete": world_riddles.sonar_completed, "sonar_sigils": world_riddles.sonar_collected,
 		"secret_caches": secret_caches, "skyshards_collected": skyshards_collected,
 		"tracked_quest_id": tracked_quest_id,
 		"quest_claimed": quest_claimed, "discovered_realms": discovered_realm_ids,
@@ -2237,6 +2257,7 @@ func load_game() -> bool:
 	load_realm_stage(restored_realm)
 	echo_chamber.reset_runtime()
 	echo_chamber.completed = bool(data.get("echo_trial_complete", false))
+	world_riddles.restore_progress(data)
 	quest_counts = data.get("quest_counts", {})
 	if not quest_counts is Dictionary: quest_counts = {}
 	quest_claimed = data.get("quest_claimed", [])
