@@ -348,6 +348,14 @@ jobs:
           grep -Fq 'PASS: optional chime and counterweight altars, mobile interaction, one-time rewards and save migration' /tmp/godot-v8.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V8 BONUS FAILED)' /tmp/godot-v8.log; then exit 1; fi
 
+      - name: Verify v9 living Echo Labyrinth shadow replay, physical gate and save migration
+        shell: bash
+        run: |
+          set -eo pipefail
+          timeout --signal=TERM 90s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v9_echo_labyrinth.gd 2>&1 | tee /tmp/godot-v9.log
+          grep -Fq 'PASS: v9 physical ghost recording, real Android input, blocking gate, replay switches, rewards and save migration' /tmp/godot-v9.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V9 ECHO FAILED)' /tmp/godot-v9.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -405,4 +413,5 @@ jobs:
             /tmp/godot-v7.log
             /tmp/godot-aether-mechanics.log
             /tmp/godot-v8.log
+            /tmp/godot-v9.log
           if-no-files-found: ignore
