@@ -7,6 +7,10 @@ const REALM_CATALOG = preload("res://scripts/RealmCatalog.gd")
 const V5_SAVE_VERSION := 50
 const V6_SAVE_VERSION := 60
 const PUZZLE_ENGINE = preload("res://scripts/PuzzleEngine.gd")
+const BONUS_TRIALS = {
+	"gale_chimes": {"realm": "gale_spire", "name": "SKYWARD CHIME ALTAR", "type": "melody", "reward": 115, "offset": 985.0},
+	"tide_scales": {"realm": "tide_temple", "name": "TWIN TIDE BALANCES", "type": "scale", "reward": 145, "offset": 985.0}
+}
 const NEW_BOSSES = ["root_colossus", "mirror_keeper", "gale_wyrm", "mire_reaver",
 	"echo_archon", "abyss_leviathan", "thornheart", "nexus_echo"]
 const EMBER_START := 15800.0
@@ -157,6 +161,7 @@ var secret_caches: Array = []
 # Hidden vertical routes now reward platform skill in every non-hub stage.
 var skyshards_collected: Array = []
 var trial_completed: Array = []
+var bonus_trial_completed: Array = []
 var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
 var trial_hint_text := ""
@@ -1486,6 +1491,34 @@ func trial_side_room(id: String) -> String:
 			return str(trial)
 	return ""
 
+func nearby_bonus_pedestal() -> String:
+	if state != "playing": return ""
+	for key in BONUS_TRIALS:
+		var trial: Dictionary = BONUS_TRIALS[key]
+		if current_realm_id != str(trial["realm"]) or bonus_trial_completed.has(key):
+			continue
+		var region: Dictionary = current_realm()
+		var spot: float = float(region["start"]) + float(trial["offset"])
+		if absf(player_pos.x - spot) < 108.0 and absf(player_pos.y - FLOOR_Y) < 132.0:
+			return str(key)
+	return ""
+
+func open_bonus_puzzle(id: String) -> bool:
+	if state != "playing" or id == "" or nearby_bonus_pedestal() != id:
+		return false
+	var info: Dictionary = BONUS_TRIALS.get(id, {})
+	if info.is_empty() or bonus_trial_completed.has(id): return false
+	trial_puzzle_id = id
+	trial_puzzle = PUZZLE_ENGINE.make(id, str(info["type"]))
+	trial_hint_text = "OPTIONAL TRIAL - HINT / RESTART / EXIT AVAILABLE"
+	trial_preview_time = 5.0
+	touch_axis = 0.0
+	joystick_touch = -1
+	attack_touch.clear()
+	hold_attack = false
+	state = "v6_puzzle"
+	return true
+
 func nearby_trial_pedestal() -> bool:
 	var info: Dictionary = current_realm()
 	if str(info.get("kind", "")) != "trial" or trial_completed.has(current_realm_id):
@@ -1523,7 +1556,9 @@ func trial_hint() -> void:
 
 func trial_restart() -> void:
 	if state != "v6_puzzle": return
-	trial_puzzle = PUZZLE_ENGINE.make(trial_puzzle_id, str(REALM_CATALOG.TRIALS[trial_puzzle_id]["type"]))
+	var info: Dictionary = BONUS_TRIALS.get(trial_puzzle_id, {}) if BONUS_TRIALS.has(trial_puzzle_id) else REALM_CATALOG.TRIALS.get(trial_puzzle_id, {})
+	if info.is_empty(): return
+	trial_puzzle = PUZZLE_ENGINE.make(trial_puzzle_id, str(info["type"]))
 	trial_preview_time = 4.5
 	trial_hint_text = "PUZZLE RESTARTED. NO DAMAGE OR RESOURCE COST."
 
@@ -1541,8 +1576,15 @@ func finish_trial_puzzle() -> void:
 		leave_trial_puzzle()
 		return
 	var cleared: String = trial_puzzle_id
-	var info: Dictionary = REALM_CATALOG.TRIALS[cleared]
-	trial_completed.append(cleared)
+	var is_bonus: bool = BONUS_TRIALS.has(cleared)
+	var info: Dictionary = BONUS_TRIALS[cleared] if is_bonus else REALM_CATALOG.TRIALS[cleared]
+	if is_bonus:
+		if bonus_trial_completed.has(cleared):
+			leave_trial_puzzle()
+			return
+		bonus_trial_completed.append(cleared)
+	else:
+		trial_completed.append(cleared)
 	var rewards: int = int(info.get("reward", 105))
 	coins += rewards
 	relic_shards += 1
@@ -1800,7 +1842,7 @@ func hero_animation_params() -> Dictionary:
 func nearby_npc() -> String:
 	if nearby_secret_cache() != "": return "secret"
 	if nearby_stage_portal() != "": return "portal"
-	if nearby_trial_pedestal(): return "trial_puzzle"
+	if nearby_trial_pedestal() or nearby_bonus_pedestal() != "": return "trial_puzzle"
 	if nearby_story_npc(): return "story"
 	if nearby_portal_index() >= 0: return "portal"
 	if nearby_ember_brazier() >= 0: return "ember_brazier"
@@ -1820,6 +1862,10 @@ func interact() -> void:
 		return
 	if nearby_trial_pedestal():
 		open_trial_puzzle()
+		return
+	var bonus_id: String = nearby_bonus_pedestal()
+	if bonus_id != "":
+		open_bonus_puzzle(bonus_id)
 		return
 	var stage_gate: String = nearby_stage_portal()
 	if stage_gate != "":
@@ -1953,6 +1999,7 @@ func start_new_game() -> void:
 	portal_unlocked = [true, false, false, false, false]
 	current_realm_id = "hub"
 	trial_completed.clear()
+	bonus_trial_completed.clear()
 	secret_caches.clear()
 	skyshards_collected.clear()
 	trial_puzzle.clear()
@@ -2030,7 +2077,7 @@ func save_game() -> void:
 		"emberling_unlocked": emberling_unlocked, "emberling_active": emberling_active,
 		"ember_hunts": ember_hunt_counts, "ember_hunt_claimed": ember_hunt_claimed,
 		"active_realm": current_realm_id, "quest_counts": quest_counts,
-		"trial_completed": trial_completed,
+		"trial_completed": trial_completed, "bonus_trial_completed": bonus_trial_completed,
 		"secret_caches": secret_caches, "skyshards_collected": skyshards_collected,
 		"tracked_quest_id": tracked_quest_id,
 		"quest_claimed": quest_claimed, "discovered_realms": discovered_realm_ids,
@@ -2152,8 +2199,15 @@ func load_game() -> bool:
 	quest_claimed = data.get("quest_claimed", [])
 	if not quest_claimed is Array: quest_claimed = []
 	trial_completed.clear()
+	bonus_trial_completed.clear()
 	secret_caches.clear()
 	skyshards_collected.clear()
+	var restored_bonus = data.get("bonus_trial_completed", [])
+	if restored_bonus is Array:
+		for bonus in restored_bonus:
+			var trial_key: String = str(bonus)
+			if BONUS_TRIALS.has(trial_key) and not bonus_trial_completed.has(trial_key):
+				bonus_trial_completed.append(trial_key)
 	var restored_shards = data.get("skyshards_collected", [])
 	if restored_shards is Array:
 		for entry in restored_shards:
@@ -2403,6 +2457,20 @@ func _draw() -> void:
 			var cx: float = float(i) * 175.0 + x0 * 0.03
 			var peak: float = 275.0 + sin(float(i) * 2.3) * 48.0
 			draw_colored_polygon(PackedVector2Array([Vector2(cx - 145.0, 443.0), Vector2(cx, peak), Vector2(cx + 160.0, 443.0)]), Color(sky.r * 0.48, sky.g * 0.55, sky.b * 0.68, 0.64))
+	# Interactive in-world altars; hidden after one-time completion.
+	for key in BONUS_TRIALS:
+		var trial_info: Dictionary = BONUS_TRIALS[key]
+		if current_realm_id != str(trial_info["realm"]) or bonus_trial_completed.has(key):
+			continue
+		var stage_info: Dictionary = current_realm()
+		var altar_x: float = float(stage_info["start"]) + float(trial_info["offset"])
+		if altar_x < left - 100.0 or altar_x > right + 100.0: continue
+		var altar_base: Vector2 = Vector2(altar_x, FLOOR_Y)
+		draw_rect(Rect2(altar_x - 47.0, FLOOR_Y - 24.0, 94.0, 24.0), Color("193a52"))
+		draw_rect(Rect2(altar_x - 30.0, FLOOR_Y - 114.0, 60.0, 88.0), Color("244b65"))
+		draw_arc(altar_base + Vector2(0.0, -99.0), 25.0, 0.0, TAU, 28, Color("8cf6de"), 4.0)
+		draw_circle(altar_base + Vector2(0.0, -99.0), 11.0, Color("dceca8"))
+		draw_string(font, altar_base + Vector2(-63.0, -138.0), "CHIME ALTAR" if str(key) == "gale_chimes" else "TIDE SCALES", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color("e8e4b4"))
 	# Subtle dusk/night tint across each biome, without extra mobile shaders.
 	var twilight: float = 0.035 + 0.07 * (0.5 + 0.5 * sin(elapsed * (0.004 if reduced_motion else 0.02)))
 	if right >= 0.0:
