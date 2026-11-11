@@ -88,7 +88,7 @@ catalog=(r/"scripts/RealmCatalog.gd").read_text()
 realm_script=r/"scripts/RealmScene.gd"
 assert realm_script.is_file(), "Missing real scene/portal renderer"
 assert "const REGIONS" in catalog and "const QUESTS" in catalog
-assert len(re.findall(r'"id": "(?:q\\d\\d)"', catalog)) >= 30, "Missing 30 tracked RPG quests"
+assert len(re.findall(r'"id": "q[0-9][0-9]"', catalog)) >= 30, "Missing 30 tracked RPG quests"
 realm_ids=["hub","forest","ruins","crystal","sky","marsh","ember","cinder",
     "abyss","tide_temple","garden","verdant_vault","nexus","rootcrypt",
     "mirror_vault","gale_spire","mire_catacombs","echo_labyrinth","nexus_core"]
