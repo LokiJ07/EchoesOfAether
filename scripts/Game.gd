@@ -8,8 +8,8 @@ const V5_SAVE_VERSION := 50
 const V6_SAVE_VERSION := 60
 const PUZZLE_ENGINE = preload("res://scripts/PuzzleEngine.gd")
 const BONUS_TRIALS = {
-	"gale_chimes": {"realm": "gale_spire", "name": "SKYWARD CHIME ALTAR", "type": "melody", "reward": 115, "offset": 985.0},
-	"tide_scales": {"realm": "tide_temple", "name": "TWIN TIDE BALANCES", "type": "scale", "reward": 145, "offset": 985.0}
+	"gale_chimes": {"realm": "gale_spire", "name": "SKYWARD CHIME ALTAR", "type": "melody", "reward": 115, "offset": 1350.0},
+	"tide_scales": {"realm": "tide_temple", "name": "TWIN TIDE BALANCES", "type": "scale", "reward": 145, "offset": 1350.0}
 }
 const NEW_BOSSES = ["root_colossus", "mirror_keeper", "gale_wyrm", "mire_reaver",
 	"echo_archon", "abyss_leviathan", "thornheart", "nexus_echo"]
