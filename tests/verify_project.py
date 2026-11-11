@@ -149,3 +149,12 @@ for symbol in ["func draw_v6_puzzle(", '"v6_hint"', '"v6_leave"']:
 assert (r/"tests/v6_deep_realms.gd").is_file()
 assert "tests/v6_deep_realms.gd" in workflow and "tools/build_v6_art.py" in workflow
 print("PASS: v6 has eight unique deep dungeon rooms, 46 quests, 4 puzzles and original art")
+
+# v6 exploration + optional premium graphics: safe to build without the
+# separately distributed images; project never tries downloading them at runtime.
+assert 'func load_premium_art(' in contents and 'premium_art.has(premium_key)' in contents
+assert 'func secret_cache_positions(' in contents and 'func collect_secret_cache(' in contents
+assert '"secret_caches": secret_caches' in contents
+assert '"id": "q56"' in catalog and '"event": "secret:forest"' in catalog
+assert 'PASS: 52 discoverable realm secrets' in workflow
+print("PASS: optional premium art loader, 52 treasure sites and ten exploration RPG quests")

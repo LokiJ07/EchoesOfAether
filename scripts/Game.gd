@@ -149,6 +149,10 @@ var realm_backdrops: Dictionary = {}
 var ember_art: Dictionary = {}
 var v5_art: Dictionary = {}
 var v6_art: Dictionary = {}
+# Optional HD art bundle; never required for game logic, saves or CI.
+var premium_art: Dictionary = {}
+# Two discoverable secrets per region provide real exploration rewards.
+var secret_caches: Array = []
 var trial_completed: Array = []
 var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
@@ -209,6 +213,7 @@ func _ready() -> void:
 	load_ember_art()
 	load_v5_generated_art()
 	load_v6_generated_art()
+	load_premium_art()
 	load_realm_stage("hub")
 	camera.position = Vector2(575, 316)
 	camera.make_current()
@@ -247,6 +252,49 @@ func draw_realm_backdrop(region: int, region_start: float, region_end: float, le
 	draw_texture_rect(texture, Rect2(region_start, -133.0, region_end - region_start, 680.0), false,
 		Color(1.0, 1.0, 1.0, 0.55 if graphics_quality == 2 else 0.42))
 
+
+func load_premium_art() -> void:
+	# Original AI illustrations supplied in the optional import-ready art pack.
+	# They are cached once, never downloaded over the network during play.
+	for name in ["hub", "forest", "rootcrypt", "crystal", "mirror_vault",
+		"marsh", "mire_catacombs", "abyss", "tide_temple", "garden"]:
+		var filename: String = "res://assets/v6_premium_%s.jpg" % name
+		if ResourceLoader.exists(filename):
+			var resource: Resource = load(filename)
+			if resource is Texture2D:
+				premium_art[name] = resource
+
+func secret_cache_positions(region: Dictionary) -> Array:
+	if region.is_empty() or str(region["kind"]) == "hub": return []
+	var start_x: float = float(region["start"])
+	var width: float = float(region["end"]) - start_x
+	return [
+		{"id": str(region["id"]) + ":a", "x": start_x + width * 0.28},
+		{"id": str(region["id"]) + ":b", "x": start_x + width * 0.77}
+	]
+
+func nearby_secret_cache() -> String:
+	for entry in secret_cache_positions(current_realm()):
+		if secret_caches.has(str(entry["id"])): continue
+		if absf(player_pos.x - float(entry["x"])) < 76.0 and absf(player_pos.y - FLOOR_Y) < 135.0:
+			return str(entry["id"])
+	return ""
+
+func collect_secret_cache() -> bool:
+	if state != "playing": return false
+	var key: String = nearby_secret_cache()
+	if key == "": return false
+	secret_caches.append(key)
+	var gained: int = 45 + int(secret_caches.size() % 3) * 15
+	coins += gained
+	if secret_caches.size() % 4 == 0: relic_shards += 1
+	var region_id: String = key.get_slice(":", 0)
+	record_quest_event("secret:" + region_id)
+	spawn_dust(player_pos + Vector2(0, -65), Color("e8d89a"), 15)
+	show_message("HIDDEN CACHE DISCOVERED! +%d COINS" % gained, 3.0)
+	play_sfx("loot")
+	save_game()
+	return true
 
 func load_v5_generated_art() -> void:
 	# Each procedural panorama is created once at build time, then bundled into
@@ -1676,6 +1724,7 @@ func hero_animation_params() -> Dictionary:
 	return {"pose": pose, "offset": offset, "angle": angle, "squash": squash}
 
 func nearby_npc() -> String:
+	if nearby_secret_cache() != "": return "secret"
 	if nearby_stage_portal() != "": return "portal"
 	if nearby_trial_pedestal(): return "trial_puzzle"
 	if nearby_story_npc(): return "story"
@@ -1692,6 +1741,9 @@ func nearby_npc() -> String:
 
 func interact() -> void:
 	if state != "playing": return
+	if nearby_secret_cache() != "":
+		collect_secret_cache()
+		return
 	if nearby_trial_pedestal():
 		open_trial_puzzle()
 		return
@@ -1827,6 +1879,7 @@ func start_new_game() -> void:
 	portal_unlocked = [true, false, false, false, false]
 	current_realm_id = "hub"
 	trial_completed.clear()
+	secret_caches.clear()
 	trial_puzzle.clear()
 	trial_puzzle_id = ""
 	quest_counts.clear()
@@ -1903,6 +1956,7 @@ func save_game() -> void:
 		"ember_hunts": ember_hunt_counts, "ember_hunt_claimed": ember_hunt_claimed,
 		"active_realm": current_realm_id, "quest_counts": quest_counts,
 		"trial_completed": trial_completed,
+		"secret_caches": secret_caches,
 		"tracked_quest_id": tracked_quest_id,
 		"quest_claimed": quest_claimed, "discovered_realms": discovered_realm_ids,
 		"dungeon_clears": dungeon_clears, "story_seen": story_seen,
@@ -2023,6 +2077,15 @@ func load_game() -> bool:
 	quest_claimed = data.get("quest_claimed", [])
 	if not quest_claimed is Array: quest_claimed = []
 	trial_completed.clear()
+	secret_caches.clear()
+	var seen_secrets = data.get("secret_caches", [])
+	if seen_secrets is Array:
+		for entry in seen_secrets:
+			var key: String = str(entry)
+			if key.ends_with(":a") or key.ends_with(":b"):
+				var region_id: String = key.get_slice(":", 0)
+				if not REALM_CATALOG.region(region_id).is_empty() and not secret_caches.has(key):
+					secret_caches.append(key)
 	var saved_trials = data.get("trial_completed", [])
 	if saved_trials is Array:
 		for id in saved_trials:
@@ -2226,7 +2289,14 @@ func _draw() -> void:
 		if x1 < left or x0 > right: continue
 		var sky: Color = Color(str(data["sky"]))
 		draw_rect(Rect2(x0, -270, x1 - x0, 810), sky)
-		if x0 < 23000.0:
+		var premium_key: String = str(data["id"])
+		if graphics_quality > 0 and premium_art.has(premium_key):
+			# One illustration per isolated scene — never stretch/repeat across
+			# adjacent realms or expose a visible shared background seam.
+			draw_texture_rect(premium_art[premium_key],
+				Rect2(x0, -175.0, x1 - x0, 730.0), false,
+				Color(1.0, 1.0, 1.0, 0.90 if graphics_quality == 2 else 0.73))
+		elif x0 < 23000.0:
 			var region_number: int = REALM_CATALOG.REGIONS.find(data)
 			draw_realm_backdrop(region_number, x0, x1, left, right)
 		else:
@@ -2335,6 +2405,17 @@ func _draw() -> void:
 		draw_label(Vector2(310, 295), "MIRA'S HALL", 16, Color("f3dba1"))
 		draw_label(Vector2(886, 295), "STARLIT EMPORIUM", 15, Color("f3dba1"))
 		draw_label(Vector2(1330, 295), "WAYFARER'S REST", 15, Color("f3dba1"))
+	# Secret exploration caches have world-space hitboxes and saved rewards.
+	for entry in secret_cache_positions(current_realm()):
+		var px: float = float(entry["x"])
+		if px < left - 65.0 or px > right + 65.0: continue
+		if secret_caches.has(str(entry["id"])): continue
+		var pulse: float = 0.75 + 0.25 * sin(elapsed * 2.8 + px * 0.01)
+		draw_circle(Vector2(px, FLOOR_Y - 42.0), 28.0 * pulse, Color(1.0, 0.83, 0.46, 0.14))
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(px, FLOOR_Y - 70.0), Vector2(px + 19.0, FLOOR_Y - 43.0),
+			Vector2(px, FLOOR_Y - 15.0), Vector2(px - 19.0, FLOOR_Y - 43.0)]), Color("e0b56a"))
+		draw_label(Vector2(px - 43.0, FLOOR_Y - 90.0), "SECRET CACHE", 13, Color("fff0b0"))
 	# Hidden hand-placed relic caches with an animated golden aura.
 	for cache_id in range(CACHE_LOCATIONS.size()):
 		if opened_caches.has(cache_id): continue

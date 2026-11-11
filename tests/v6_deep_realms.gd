@@ -143,7 +143,23 @@ func run_tests() -> void:
 	print("V6 CHECKPOINT: all late-game annexes solved")
 	game.save_game()
 	if not check(game.load_game() and game.trial_completed.size() == 8, "All trial rewards persist safely across APK update"): return
+	# Each isolated region contains genuine optional exploration caches.
+	# Collecting one grants a quest reward and stays solved after save/reload.
+	if not check(game.enter_realm("forest"), "Whisperwood secrets are reachable from hub"): return
+	game.dialogue = ""
+	var secrets: Array = game.secret_cache_positions(game.current_realm())
+	if not check(secrets.size() == 2, "Every exploration map exposes two hidden interactables"): return
+	var secret_id: String = str(secrets[0]["id"])
+	game.player_pos = Vector2(float(secrets[0]["x"]), game.FLOOR_Y)
+	if not check(game.nearby_secret_cache() == secret_id, "Hidden cache has a real proximity interaction"): return
+	var old_coins: int = game.coins
+	if not check(game.collect_secret_cache() and game.coins > old_coins, "First opening grants tangible loot"): return
+	if not check(game.quest_claimed.has("q47"), "Secret unlocks its associated RPG quest reward"): return
+	if not check(not game.collect_secret_cache(), "Collected cache cannot be farmed repeatedly"): return
+	game.save_game()
+	if not check(game.load_game() and game.secret_caches.has(secret_id), "Exploration discoveries survive Android save updates"): return
 	game.start_new_game()
-	if not check(game.trial_completed.is_empty(), "New game resets annex completions, not old app settings"): return
+	if not check(game.trial_completed.is_empty() and game.secret_caches.is_empty(), "New game clears annex and treasure progress, not app settings"): return
+	print("PASS: 52 discoverable realm secrets, ten exploration quests and permanent rewards")
 	print("PASS: all eight puzzle paths, save compatibility, and completed-chamber persistence")
 	quit(0)

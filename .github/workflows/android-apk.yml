@@ -262,6 +262,7 @@ jobs:
           grep -Fq 'PASS: sliding mural assembly, legal moves, optional exits, progression rewards and quest events' /tmp/godot-v6.log
           grep -Fq 'PASS: pipe-connectivity, logic equations, memory sequence and nonpunishing hints' /tmp/godot-v6.log
           grep -Fq 'PASS: all eight puzzle paths, save compatibility, and completed-chamber persistence' /tmp/godot-v6.log
+          grep -Fq 'PASS: 52 discoverable realm secrets, ten exploration quests and permanent rewards' /tmp/godot-v6.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V6 FAILED)' /tmp/godot-v6.log; then exit 1; fi
 
       - name: Export signed debug APK

@@ -1,5 +1,9 @@
 # Echoes of Aether v6 — DEEP REALMS: Eight Annex Trials
 
+**Latest gameplay addition:** 52 discoverable secret-cache positions across the 26 non-hub portal scenes, with ten extra exploration quests (56 total). Opening a cache grants coins and contributes toward relic rewards, and its collected state persists in the save file. The HUD interaction button now recognizes nearby secrets. All original dungeon puzzle rewards remain optional.
+
+**Premium scenery option:** the game now automatically loads ten original high-resolution JPG backgrounds if supplied at `assets/v6_premium_<realm>.jpg`. No internet is needed to play; missing premium art safely falls back to the existing generated PNG artwork. See [Premium Art Import](docs/V6_PREMIUM_ART.md) for filenames and how to add the separately provided art pack.
+
 The new content expands the existing v5 portal RPG to **27 independent PackedScene destinations** and **46 saved quests** (previously 19 and 30). Eight original branch rooms are accessible from mid-dungeon secret portals: Rootbound Mural Gallery, Prism Circuit Annex, Wind Observatory, Lantern Chamber, Living Forge Engine, Tidal Control Vault, Seedweave Arbor and Star Memory Chamber.
 
 ## Truly different interactive puzzles

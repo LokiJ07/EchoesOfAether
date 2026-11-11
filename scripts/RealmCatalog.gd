@@ -597,7 +597,17 @@ const QUESTS = [
 	{"id": "q43", "title": "Discover SEEDWEAVE ARBOR", "event": "visit:seed_arbor", "target": 1, "region": "verdant_vault", "coins": 145, "exp": 45},
 	{"id": "q44", "title": "Solve SEEDWEAVE ARBOR puzzle", "event": "trial:seed_arbor", "target": 1, "region": "verdant_vault", "coins": 235, "exp": 75},
 	{"id": "q45", "title": "Discover STAR MEMORY CHAMBER", "event": "visit:nexus_memory", "target": 1, "region": "nexus_core", "coins": 155, "exp": 45},
-	{"id": "q46", "title": "Solve STAR MEMORY CHAMBER puzzle", "event": "trial:nexus_memory", "target": 1, "region": "nexus_core", "coins": 250, "exp": 75}
+	{"id": "q46", "title": "Solve STAR MEMORY CHAMBER puzzle", "event": "trial:nexus_memory", "target": 1, "region": "nexus_core", "coins": 250, "exp": 75},
+	{"id": "q47", "title": "Follow the hidden ranger cache", "event": "secret:forest", "target": 1, "region": "forest", "coins": 90, "exp": 45},
+	{"id": "q48", "title": "Recover the Echo Labyrinth relic trail", "event": "secret:ruins", "target": 1, "region": "ruins", "coins": 105, "exp": 52},
+	{"id": "q49", "title": "Find the crystal prospector's secret", "event": "secret:crystal", "target": 1, "region": "crystal", "coins": 120, "exp": 59},
+	{"id": "q50", "title": "Discover the highland sky cache", "event": "secret:sky", "target": 1, "region": "sky", "coins": 135, "exp": 66},
+	{"id": "q51", "title": "Uncover a lost witchlight stash", "event": "secret:marsh", "target": 1, "region": "marsh", "coins": 150, "exp": 73},
+	{"id": "q52", "title": "Recover the Cinder Forge supplies", "event": "secret:ember", "target": 1, "region": "ember", "coins": 165, "exp": 80},
+	{"id": "q53", "title": "Retrieve a drowned city's relic", "event": "secret:abyss", "target": 1, "region": "abyss", "coins": 180, "exp": 87},
+	{"id": "q54", "title": "Find an Everdawn bloom treasure", "event": "secret:garden", "target": 1, "region": "garden", "coins": 195, "exp": 94},
+	{"id": "q55", "title": "Recover a lost Aether star fragment", "event": "secret:nexus", "target": 1, "region": "nexus", "coins": 210, "exp": 101},
+	{"id": "q56", "title": "Open the secret forge cache", "event": "secret:cinder", "target": 1, "region": "cinder", "coins": 225, "exp": 108}
 ]
 
 static func region(id: String) -> Dictionary:

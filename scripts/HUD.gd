@@ -512,7 +512,7 @@ func draw_mobile_controls(w: float, h: float) -> void:
 	control_button(c["potion"], 37, "+", "POTION %d" % game.potions, Color("f5a2a2"))
 	if game.nearby_npc() != "" or game.state == "hud_edit":
 		var target: String = game.nearby_npc()
-		var label: String = "SOLVE" if target in ["shrine", "ember_brazier", "trial_puzzle"] else ("RESCUE" if target == "emberling" else ("TRAVEL" if target == "portal" else ("OPEN" if target == "cache" else ("TRAIN" if target == "scout" else ("SHOP" if target == "merchant" else "TALK")))))
+		var label: String = "SOLVE" if target in ["shrine", "ember_brazier", "trial_puzzle"] else ("RESCUE" if target == "emberling" else ("TRAVEL" if target == "portal" else ("OPEN" if target in ["cache", "secret"] else ("TRAIN" if target == "scout" else ("SHOP" if target == "merchant" else "TALK")))))
 		control_button(c["interact"], 40, "!", label, Color("f3db98"))
 
 func modal(w: float, h: float, heading: String, width: float = 650.0, height: float = 470.0) -> Rect2:
