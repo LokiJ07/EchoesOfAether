@@ -6,6 +6,39 @@ var font: Font
 var menu_buttons: Array = []
 var top_buttons: Array = []
 var main_accent := Color("75e7d4")
+var atlas_art: Texture2D
+var atlas_selected := "hub"
+var dialogue_portraits: Dictionary = {}
+const ATLAS_POINTS := [
+	{"id":"hub","at":Vector2(0.11,0.70),"title":"MOONHAVEN","number":1},
+	{"id":"forest","at":Vector2(0.27,0.55),"title":"WHISPERWOOD","number":2},
+	{"id":"rootcrypt","at":Vector2(0.25,0.74),"title":"ROOTBOUND CRYPT","number":2},
+	{"id":"ruins","at":Vector2(0.43,0.67),"title":"SUNKEN RUINS","number":3},
+	{"id":"echo_labyrinth","at":Vector2(0.47,0.79),"title":"ECHO LABYRINTH","number":3},
+	{"id":"crystal","at":Vector2(0.47,0.44),"title":"CRYSTAL HOLLOW","number":4},
+	{"id":"mirror_vault","at":Vector2(0.59,0.38),"title":"MIRROR VAULT","number":4},
+	{"id":"sky","at":Vector2(0.59,0.19),"title":"HIGHLANDS","number":5},
+	{"id":"gale_spire","at":Vector2(0.72,0.17),"title":"GALE SPIRE","number":5},
+	{"id":"marsh","at":Vector2(0.63,0.63),"title":"SHADOWFEN","number":6},
+	{"id":"mire_catacombs","at":Vector2(0.56,0.72),"title":"CATACOMBS","number":6},
+	{"id":"ember","at":Vector2(0.73,0.74),"title":"EMBERFALL","number":7},
+	{"id":"cinder","at":Vector2(0.78,0.80),"title":"CINDER VAULT","number":7},
+	{"id":"abyss","at":Vector2(0.84,0.65),"title":"ABYSSAL DEPTHS","number":8},
+	{"id":"tide_temple","at":Vector2(0.92,0.76),"title":"TIDE TEMPLE","number":8},
+	{"id":"garden","at":Vector2(0.82,0.43),"title":"EVERDAWN","number":9},
+	{"id":"verdant_vault","at":Vector2(0.91,0.48),"title":"VERDANT VAULT","number":9},
+	{"id":"nexus","at":Vector2(0.91,0.19),"title":"AETHER NEXUS","number":10},
+	{"id":"nexus_core","at":Vector2(0.97,0.30),"title":"CORE SANCTUM","number":10}
+]
+const ATLAS_ROUTES := [
+	["hub","forest"],["forest","rootcrypt"],["forest","ruins"],
+	["ruins","echo_labyrinth"],["ruins","crystal"],
+	["crystal","mirror_vault"],["crystal","sky"],["sky","gale_spire"],
+	["sky","marsh"],["marsh","mire_catacombs"],["marsh","ember"],
+	["ember","cinder"],["ember","abyss"],["abyss","tide_temple"],
+	["abyss","garden"],["garden","verdant_vault"],["garden","nexus"],
+	["nexus","nexus_core"]
+]
 var settings_return := "pause"
 # v0.6: coordinates are normalized, so layouts work across 16:9 and ultrawide phones.
 const CONTROL_KEYS = ["joystick", "attack", "jump", "dash", "skill", "potion", "interact", "guard"]
@@ -20,6 +53,14 @@ func _ready() -> void:
 	font = ThemeDB.fallback_font
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	load_control_layout()
+	if ResourceLoader.exists("res://assets/v10_world_atlas.svg"):
+		atlas_art = load("res://assets/v10_world_atlas.svg") as Texture2D
+	for portrait_id in ["sen", "mira", "vera", "scout", "narrator"]:
+		var file: String = "res://assets/v10_portrait_%s.svg" % portrait_id
+		if ResourceLoader.exists(file):
+			var resource: Resource = load(file)
+			if resource is Texture2D:
+				dialogue_portraits[portrait_id] = resource
 
 # Adapt coordinates to the real phone aspect ratio; the Godot "expand" viewport
 # makes screen size variable (16:9, 19.5:9, 20:9, tablets, cutout-safe margins).
@@ -683,23 +724,141 @@ func draw_portal_network(w: float, h: float) -> void:
 	menu_button(Rect2(panel.end.x - 186.0, footer_y, 158.0, 43.0), "NEXT", "portal_next")
 	menu_button(Rect2(w * 0.5 - 145.0, footer_y, 290.0, 43.0), "CLOSE PORTALS", "resume", Color("efb8a9"))
 
+func atlas_position(id: String, w: float, h: float) -> Vector2:
+	for point in ATLAS_POINTS:
+		if str(point["id"]) == id:
+			var uv: Vector2 = point["at"]
+			return Vector2(uv.x * w, uv.y * h)
+	return Vector2(w * 0.1, h * 0.7)
+
+func atlas_item(id: String) -> Dictionary:
+	for point in ATLAS_POINTS:
+		if str(point["id"]) == id:
+			return point
+	return {}
+
+func atlas_completed(id: String) -> bool:
+	# Stars are earned from recorded quests/dungeon defeats; never random UI ratings.
+	if game.REALM_CATALOG.DUNGEON_BOSSES.has(id):
+		return game.dungeon_clears.has(id)
+	var total: int = 0
+	var done: int = 0
+	for quest in game.REALM_CATALOG.QUESTS:
+		if str(quest["region"]) != id: continue
+		total += 1
+		if game.quest_claimed.has(str(quest["id"])): done += 1
+	return total > 0 and done == total
+
+func atlas_quest_counts(id: String) -> Vector2i:
+	var done: int = 0
+	var total: int = 0
+	for quest in game.REALM_CATALOG.QUESTS:
+		if str(quest["region"]) != id: continue
+		total += 1
+		if game.quest_claimed.has(str(quest["id"])): done += 1
+	return Vector2i(done, total)
+
+func atlas_progress_percent() -> int:
+	# 35% discovery + 45% actual journal quests + 20% dungeon clears.
+	var discovered: int = 0
+	for point in ATLAS_POINTS:
+		if game.discovered_realm_ids.has(str(point["id"])): discovered += 1
+	var visit_fraction: float = float(discovered) / float(ATLAS_POINTS.size())
+	var quest_fraction: float = float(game.quest_claimed.size()) / float(maxi(1, game.quest_total()))
+	var dungeons: float = float(game.dungeon_clears.size()) / float(maxi(1, game.REALM_CATALOG.DUNGEON_BOSSES.size()))
+	return clampi(roundi((visit_fraction * 0.35 + quest_fraction * 0.45 + dungeons * 0.20) * 100.0), 0, 100)
+
+func draw_atlas_route(first: Vector2, last: Vector2, unlocked: bool, completed: bool) -> void:
+	var points := PackedVector2Array()
+	var middle: Vector2 = first.lerp(last, 0.5) + Vector2(0.0, -minf(35.0, absf(first.x - last.x) * 0.09))
+	for i in range(13):
+		var t: float = float(i) / 12.0
+		points.append(first * pow(1.0 - t, 2.0) + middle * (2.0 * t * (1.0 - t)) + last * (t * t))
+	draw_polyline(points, Color(0.07, 0.15, 0.27, 0.88), 10.0, true)
+	draw_polyline(points, Color("ebbd6f") if completed else (Color("9edfcf") if unlocked else Color("577184")), 4.0 if completed else 2.7, true)
+
 func draw_world_map(w: float, h: float) -> void:
-	var panel: Rect2 = modal(w, h, "ATLAS  •  THE SHATTERED AETHER CORE", minf(895.0, w - 44.0), minf(525.0, h - 26.0))
-	centered(w * 0.5, panel.position.y + 91.0, "SEPARATE REALM SCENES  •  PORTAL TRAVEL  •  DISCOVERIES", 16, Color("ebd69b"))
-	var realms: Array = game.REALM_CATALOG.regions_of_kind("realm")
-	var columns := 3
-	var item_width: float = (panel.size.x - 110.0) / 3.0
-	for i in range(realms.size()):
-		var reg: Dictionary = realms[i]
-		var x: float = panel.position.x + 39.0 + float(i % columns) * (item_width + 16.0)
-		var y: float = panel.position.y + 112.0 + float(floori(float(i) / float(columns))) * 83.0
-		var unlocked: bool = game.is_realm_unlocked(str(reg["id"]))
-		box(Rect2(x, y, item_width, 70.0), Color("253e47") if unlocked else Color("202c39"), Color("7cc5b7") if unlocked else Color("576371"), 1.2)
-		text(Vector2(x + 8.0, y + 28.0), str(reg["name"]), 14, Color("ebdfc3") if unlocked else Color("90a0ae"))
-		text(Vector2(x + 8.0, y + 49.0), "VISITED" if game.discovered_realm_ids.has(reg["id"]) else ("AVAILABLE" if unlocked else "LOCKED"), 12, Color("a7d8cd"))
-	centered(w * 0.5, panel.end.y - 103.0, "%d / %d DUNGEONS CLEARED     •     %d / %d QUESTS" % [game.dungeon_clears.size(), game.REALM_CATALOG.DUNGEON_BOSSES.size(), game.quest_claimed.size(), game.quest_total()], 15, Color("b9f0d8"))
-	menu_button(Rect2(w * 0.5 - 260.0, panel.end.y - 65.0, 245.0, 44.0), "OPEN PORTAL GATES", "open_portal_network", Color("8be4d1"))
-	menu_button(Rect2(w * 0.5 + 15.0, panel.end.y - 65.0, 245.0, 44.0), "RETURN", "resume", Color("dcb69d"))
+	# Real illustrated 2.5D overworld. Routes and node states derive from save data.
+	if atlas_art != null:
+		draw_texture_rect(atlas_art, Rect2(0, 0, w, h), false)
+	else:
+		draw_rect(Rect2(0, 0, w, h), Color("183d5f"))
+	draw_rect(Rect2(0, 0, w, 69), Color(0.04, 0.12, 0.22, 0.86))
+	draw_line(Vector2(0, 69), Vector2(w, 69), Color("e8c48f"), 2.0)
+	text(Vector2(24, 33), "ECHOES OF AETHER", 23, Color("f1e6cc"))
+	text(Vector2(24, 56), "THE LIVING WORLD ATLAS", 15, Color("a9f5e4"))
+	centered(w * 0.62, 37, "CHAPTER PROGRESSION  -  %d%%" % atlas_progress_percent(), 19, Color("f7dc9a"))
+	var chapter_line: Rect2 = Rect2(w * 0.41, 47, w * 0.43, 8)
+	draw_rect(chapter_line, Color("24334e"))
+	draw_rect(Rect2(chapter_line.position, Vector2(chapter_line.size.x * float(atlas_progress_percent()) / 100.0, 8)), Color("e6bb69"))
+	# Permanent graph of story paths and optional dungeon branches.
+	for route in ATLAS_ROUTES:
+		var src: String = str(route[0])
+		var dst: String = str(route[1])
+		var available: bool = game.is_realm_unlocked(dst)
+		draw_atlas_route(atlas_position(src, w, h), atlas_position(dst, w, h),
+			available, atlas_completed(src) and game.discovered_realm_ids.has(dst))
+	for point in ATLAS_POINTS:
+		var id: String = str(point["id"])
+		var pos: Vector2 = atlas_position(id, w, h)
+		var unlocked: bool = game.is_realm_unlocked(id)
+		var current: bool = game.current_realm_id == id
+		var selected: bool = atlas_selected == id
+		var visited: bool = game.discovered_realm_ids.has(id)
+		var clear: bool = atlas_completed(id)
+		var accent: Color = Color("e8bc78") if clear else (Color("8ee9db") if unlocked else Color("6b7b91"))
+		draw_circle(pos + Vector2(2.0, 5.0), 26.0 if selected else 23.0, Color(0.03, 0.11, 0.20, 0.90))
+		draw_circle(pos, 27.0 if selected else 21.0, Color(accent.r, accent.g, accent.b, 0.13))
+		draw_arc(pos, 25.0 if selected else 21.0, 0.0, TAU, 40, accent, 4.0 if selected else 2.6, true)
+		draw_circle(pos, 13.0, Color("355669") if unlocked else Color("263548"))
+		if clear:
+			centered(pos.x, pos.y + 6.0, "*", 22, Color("ffe4a4"))
+		elif not unlocked:
+			centered(pos.x, pos.y + 4.0, "X", 13, Color("9eaabd"))
+		elif current:
+			centered(pos.x, pos.y + 5.0, "K", 15, Color("f4e3b1"))
+		else:
+			draw_circle(pos, 5.0, Color("e1f9e6") if visited else Color("93d5d6"))
+		if current:
+			draw_arc(pos, 31.0, 0, TAU, 40, Color("fffae3"), 2.5, true)
+		if selected:
+			draw_arc(pos, 35.0, 0, TAU, 40, Color("fff2ba"), 2.4, true)
+		# On a small landscape phone, labels appear for selected/current only to avoid visual clutter.
+		if w >= 1000.0 or selected or current:
+			var tag: String = str(point["title"])
+			var label_w: float = font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
+			var tx: float = clampf(pos.x - label_w * 0.5, 4.0, w - label_w - 4.0)
+			box(Rect2(tx, pos.y + 30.0, label_w, 23.0), Color(0.06, 0.14, 0.24, 0.86), Color(accent.r, accent.g, accent.b, 0.70), 1.0)
+			text(Vector2(tx + 8.0, pos.y + 47.0), tag, 12, Color("e6f2e9"))
+		# Invisible 56px minimum target is intentionally larger than visual marker.
+		menu_buttons.append({"rect": Rect2(pos - Vector2(28.0, 28.0), Vector2(56.0, 56.0)), "key":"atlas_node:" + id})
+	# Selection strip stays below exploration paths; no huge cards covering the map.
+	var footer: Rect2 = Rect2(0.0, h - 113.0, w, 113.0)
+	draw_rect(footer, Color(0.035, 0.09, 0.17, 0.95))
+	draw_line(Vector2(0, footer.position.y), Vector2(w, footer.position.y), Color("d5af73"), 2.5)
+	var item: Dictionary = atlas_item(atlas_selected)
+	if item.is_empty():
+		atlas_selected = "hub"
+		item = atlas_item("hub")
+	var selected_id: String = str(item["id"])
+	var selected_unlocked: bool = game.is_realm_unlocked(selected_id)
+	var visited_status: String = "DISCOVERED" if game.discovered_realm_ids.has(selected_id) else ("AVAILABLE" if selected_unlocked else "LOCKED")
+	var progress: Vector2i = atlas_quest_counts(selected_id)
+	text(Vector2(24.0, h - 84.0), "CH.%d  %s" % [int(item["number"]), str(game.REALM_CATALOG.region(selected_id).get("name", item["title"]))], 19, Color("f5dfaf"))
+	text(Vector2(24.0, h - 58.0), "%s  |  QUESTS %d/%d  |  %s" % [
+		visited_status, progress.x, progress.y, "DUNGEON RESTORED" if atlas_completed(selected_id) else "EXPLORE & COMPLETE OBJECTIVES"], 13, Color("aee5dc"))
+	text(Vector2(24.0, h - 28.0), "DISCOVERED %d/%d     QUESTS %d/%d     DUNGEONS %d/%d" % [
+		game.discovered_realm_ids.size(), game.REALM_CATALOG.REGIONS.size(),
+		game.quest_claimed.size(), game.quest_total(), game.dungeon_clears.size(), game.REALM_CATALOG.DUNGEON_BOSSES.size()], 12, Color("c3d4df"))
+	var travel_w: float = minf(185.0, w * 0.20)
+	var return_w: float = minf(148.0, w * 0.16)
+	if selected_unlocked:
+		menu_button(Rect2(w - travel_w - return_w - 30.0, h - 88.0, travel_w, 50.0), "TRAVEL", "atlas_travel", Color("b1ecdb"))
+	else:
+		var disabled_rect: Rect2 = Rect2(w - travel_w - return_w - 30.0, h - 88.0, travel_w, 50.0)
+		box(disabled_rect, Color("303846"), Color("657789"), 1.0)
+		centered(disabled_rect.get_center().x, disabled_rect.position.y + 32.0, "LOCKED", 17, Color("a3b0ba"))
+	menu_button(Rect2(w - return_w - 18.0, h - 88.0, return_w, 50.0), "RETURN", "resume", Color("e6c6a0"))
 
 func draw_realm_victory(w: float, h: float) -> void:
 	var panel := modal(w, h, "THE REALMS AWAKEN", 705, 425)
