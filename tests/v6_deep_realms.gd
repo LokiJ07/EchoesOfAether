@@ -82,8 +82,12 @@ func run_tests() -> void:
 	# Prism annex: actual graph-connectivity check on rotated pipe links.
 	if not check(open_trial(game, "prism_annex"), "Prism circuit annex opens"): return
 	if not check(not mechanic.circuit_open(game.trial_puzzle["rotations"]), "Conduit starts disconnected"): return
-	for i in range(9):
-		var current: int = int(game.trial_puzzle["rotations"][i])
+	# Solving may immediately close the puzzle and clear trial_puzzle.
+	# Cache its initial rotations before issuing any touches.
+	var prism_rotations: Array = game.trial_puzzle["rotations"].duplicate()
+	for i in range(prism_rotations.size()):
+		if game.state != "v6_puzzle": break
+		var current: int = int(prism_rotations[i])
 		for turn in range((4-current)%4):
 			if game.state == "v6_puzzle": game.press_trial_cell(i)
 	if not check(game.trial_completed.has("prism_annex"), "Beam reaches far exit only when pipe paths connect"): return
@@ -119,8 +123,10 @@ func run_tests() -> void:
 				for m in game.trial_puzzle["hint_path"].duplicate():
 					if game.state == "v6_puzzle": game.press_trial_cell(int(m))
 			"circuit":
-				for i in range(9):
-					var turns: int = (4-int(game.trial_puzzle["rotations"][i]))%4
+				var initial_rotations: Array = game.trial_puzzle["rotations"].duplicate()
+				for i in range(initial_rotations.size()):
+					if game.state != "v6_puzzle": break
+					var turns: int = (4-int(initial_rotations[i]))%4
 					for j in range(turns):
 						if game.state == "v6_puzzle": game.press_trial_cell(i)
 			"logic":
