@@ -18,6 +18,9 @@ func run_tests() -> void:
 	root.add_child(game)
 	await process_frame
 	game.start_new_game()
+	if not check(game.v9_art.size() == 3 and game.v9_art.has("echo_labyrinth") and game.v9_art.has("mirror_vault") and game.v9_art.has("ruins"), "All three original v9 panoramic SVG backgrounds imported as textures"): return
+	for region_id in ["echo_labyrinth", "mirror_vault", "ruins"]:
+		if not check(game.v9_art[region_id].get_width() >= 3000 and game.v9_art[region_id].get_height() >= 700, "Distinct wide illustration retained full artwork dimensions for " + region_id): return
 	game.quest_stage = 3
 	game.defeated_boss = true
 	if not check(game.enter_realm("mirror_vault"), "Mirror Vault is a real reachable dungeon"): return
