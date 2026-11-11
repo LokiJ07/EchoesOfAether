@@ -31,6 +31,14 @@ func run_tests() -> void:
 	var first_coins: int = game.coins
 	game.interact()
 	if not check(game.state == "v6_puzzle" and game.trial_puzzle["kind"] == "melody", "Chime puzzle opens using mobile modal"): return
+	game.trial_hint()
+	if not check(str(game.trial_hint_text).begins_with("NEXT BELL:"), "Clue offers accessible note hint"): return
+	game.trial_restart()
+	if not check(int(game.trial_puzzle["progress"]) == 0, "Restart resets sequence"): return
+	game.leave_trial_puzzle()
+	if not check(game.state == "playing" and game.bonus_trial_completed.is_empty(), "Exit is safe and grants no free reward"): return
+	game.interact()
+	if not check(game.state == "v6_puzzle" and game.trial_puzzle["kind"] == "melody", "Unsolved altar reopens"): return
 	if not check(not game.press_trial_cell(0), "Wrong note resets sequence without advancing"): return
 	for note in [2, 0, 3, 1, 2]:
 		if game.state == "v6_puzzle":
