@@ -228,20 +228,12 @@ func draw_realm_backdrop(region: int, region_start: float, region_end: float, le
 	var realm_id: String = ["crystal", "sky", "marsh"][region - 3]
 	if not realm_backdrops.has(realm_id):
 		return
+	# Render one panorama per independent destination. Repeating photo edges
+	# previously created obvious vertical gaps despite correct portal logic.
 	var texture: Texture2D = realm_backdrops[realm_id]
-	var frame_width := 1230.0
-	var frame_height := 680.0
-	var count: int = int(ceilf((region_end - region_start) / frame_width))
-	for tile in range(count):
-		var x: float = region_start + float(tile) * frame_width
-		var width: float = minf(frame_width, region_end - x)
-		if x > right or x + width < left:
-			continue
-		var src_width: float = float(texture.get_width()) * (width / frame_width)
-		draw_texture_rect_region(texture,
-			Rect2(x, -133.0, width, frame_height),
-			Rect2(0.0, 0.0, src_width, float(texture.get_height())),
-			Color(1.0, 1.0, 1.0, 0.55 if graphics_quality == 2 else 0.42))
+	draw_texture_rect(texture, Rect2(region_start, -133.0, region_end - region_start, 680.0), false,
+		Color(1.0, 1.0, 1.0, 0.55 if graphics_quality == 2 else 0.42))
+
 
 func load_ember_art() -> void:
 	var ids: Array = ["citadel", "dungeon", "cinder_warden", "fire_imp", "emberling",
@@ -256,15 +248,12 @@ func load_ember_art() -> void:
 				ember_art[id] = resource
 
 func draw_v2_background(texture: Texture2D, start: float, end: float, left: float, right: float) -> void:
-	if graphics_quality == 0: return
-	var tile_width: float = 1290.0
-	for i in range(int(ceilf((end - start) / tile_width))):
-		var x: float = start + float(i) * tile_width
-		var width: float = minf(tile_width, end - x)
-		if width <= 0.0 or x > right or x + width < left: continue
-		draw_texture_rect_region(texture, Rect2(x, -180, width, 730),
-			Rect2(0, 0, float(texture.get_width()) * width / tile_width, float(texture.get_height())),
-			Color(1, 1, 1, 0.83 if graphics_quality == 2 else 0.64))
+	if graphics_quality == 0:
+		return
+	# One continuous image per zone, rather than sharply-edged repeated tiles.
+	draw_texture_rect(texture, Rect2(start, -180.0, end - start, 730.0), false,
+		Color(1.0, 1.0, 1.0, 0.83 if graphics_quality == 2 else 0.64))
+
 
 func draw_emberfall_scenery(left: float, right: float) -> void:
 	if right < EMBER_START: return
@@ -2047,14 +2036,9 @@ func _draw() -> void:
 			elif ResourceLoader.exists("res://assets/%s.png" % art_name):
 				tex = load("res://assets/%s.png" % art_name)
 			if tex != null and graphics_quality > 0:
-				var width: float = 1200.0
-				for tile in range(int(ceilf((x1 - x0) / width))):
-					var px: float = x0 + float(tile) * width
-					var w: float = minf(width, x1 - px)
-					if px > right or px + w < left: continue
-					draw_texture_rect_region(tex, Rect2(px, -175, w, 730),
-						Rect2(0, 0, float(tex.get_width()) * w / width, float(tex.get_height())),
-						Color(1.0, 1.0, 1.0, 0.62))
+				# Individual realm panorama: never repeat one image with a visible
+				# vertical join. Each portal has its own camera / artwork bounds.
+				draw_texture_rect(tex, Rect2(x0, -175.0, x1 - x0, 730.0), false, Color(1.0, 1.0, 1.0, 0.62))
 		for band in range(13):
 			var tint: float = 0.009 + float(band) * 0.003
 			draw_rect(Rect2(x0, -225 + float(band) * 47.0, x1 - x0, 46), Color(0.6, 0.78, 0.95, tint))

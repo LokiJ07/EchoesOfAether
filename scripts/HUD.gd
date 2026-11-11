@@ -181,7 +181,13 @@ func handle_top_press(pos: Vector2) -> bool:
 
 func handle_menu_press(pos: Vector2) -> bool:
 	if game.dialogue != "":
-		game.advance_story_dialogue()
+		var panel := Rect2(size.x * 0.14, size.y * 0.68, size.x * 0.72, maxf(155.0, size.y * 0.25))
+		var skip := Rect2(panel.end.x - 185.0, panel.position.y + 12.0, 170.0, 40.0)
+		if skip.has_point(pos):
+			game.story_queue.clear()
+			game.dialogue = ""
+		else:
+			game.advance_story_dialogue()
 		return true
 	for entry in menu_buttons:
 		if not entry["rect"].has_point(pos): continue
@@ -549,6 +555,9 @@ func draw_dialogue(w: float, h: float) -> void:
 	if current != "": lines.append(current)
 	for i in range(mini(lines.size(), 4)):
 		text(r.position + Vector2(26, 38 + i * 25), lines[i], 19, Color("fff4d2"))
+	var skip_rect := Rect2(r.end.x - 185.0, r.position.y + 12.0, 170.0, 40.0)
+	box(skip_rect, Color("344254"), Color("e5c39c"), 1.5)
+	centered(skip_rect.get_center().x, skip_rect.position.y + 27.0, "SKIP STORY", 15, Color("fce8ca"))
 	text(r.position + Vector2(r.size.x - 188, r.size.y - 15), "TAP TO CONTINUE", 14, Color("9fe1d2"))
 
 func draw_inventory(w: float, h: float) -> void:

@@ -106,3 +106,8 @@ for marker in ["func draw_portal_network(", "func draw_quests(", "func draw_v5_v
 assert (r/"docs/V5_MASTER_PLAN.md").is_file()
 assert (r/"tests/v5_realms.gd").is_file() and "tests/v5_realms.gd" in workflow
 print("PASS: 19 independent playable realm scenes, 8 dungeon guardians and 30 tracked quests")
+
+# One background panorama per zone, not repeated tiles with vertical seams.
+assert "draw_texture_rect_region(tex, Rect2(px" not in contents, "Tiled v5 backgrounds create visible seams"
+assert "func draw_realm_backdrop(" in contents and "func draw_v2_background(" in contents
+assert "SKIP STORY" in hud and "game.story_queue.clear()" in hud, "Long story scenarios need a working skip action"
