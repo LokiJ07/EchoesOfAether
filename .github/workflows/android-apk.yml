@@ -257,7 +257,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v6_deep_realms.gd 2>&1 | tee /tmp/godot-v6.log
+          timeout --signal=TERM 120s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v6_deep_realms.gd 2>&1 | tee /tmp/godot-v6.log
           grep -Fq 'PASS: eight portal dungeon annexes, imported unique backgrounds, and expanded 46-quest journal' /tmp/godot-v6.log
           grep -Fq 'PASS: sliding mural assembly, legal moves, optional exits, progression rewards and quest events' /tmp/godot-v6.log
           grep -Fq 'PASS: pipe-connectivity, logic equations, memory sequence and nonpunishing hints' /tmp/godot-v6.log

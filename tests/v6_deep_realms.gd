@@ -26,6 +26,7 @@ func run_tests() -> void:
 	root.add_child(game)
 	await process_frame
 	game.start_new_game()
+	print("V6 CHECKPOINT: world initialized")
 	var catalog = game.REALM_CATALOG
 	var mechanic = game.PUZZLE_ENGINE
 	if not check(catalog.REGIONS.size() == 27 and catalog.QUESTS.size() >= 46 and game.WORLD_WIDTH == 83300.0, "Eight new dungeon branches and 16 more persistent quest lines"): return
@@ -41,6 +42,7 @@ func run_tests() -> void:
 		var texture: Texture2D = game.v6_art_for(id)
 		if not check(texture != null and texture.get_width() == 1600 and texture.get_height() == 720, "Unique actual texture loaded "+id): return
 	print("PASS: eight portal dungeon annexes, imported unique backgrounds, and expanded 46-quest journal")
+	print("V6 CHECKPOINT: eight arts and scenes verified")
 	# Rootbound: portal inside dungeon leads to its own side room, never a seam.
 	if not check(game.enter_realm("rootcrypt"), "Rootbound crypt is accessible from forest"): return
 	game.dialogue = ""
@@ -61,6 +63,7 @@ func run_tests() -> void:
 	game.leave_trial_puzzle()
 	if not check(game.state == "playing" and game.player_pos.x == checkpoint0 and game.hp == hp0 and game.coins == money0, "Exit never damages or moves player"): return
 	if not check(game.open_trial_puzzle(), "Unsolved chamber can be replayed without losing game state"): return
+	print("V6 CHECKPOINT: mural session opened and exited")
 	for move in game.trial_puzzle["hint_path"].duplicate():
 		if game.state == "v6_puzzle": game.press_trial_cell(int(move))
 	if not check(game.trial_completed.has("root_gallery") and game.state == "playing" and game.coins > money0 and game.relic_shards >= 1, "Sliding map actually completes and earns rewards"): return
@@ -75,6 +78,7 @@ func run_tests() -> void:
 	game.expansion_completed = true
 	game.ember_boss_defeated = true
 	game.dungeon_clears = ["tide_temple", "verdant_vault"]
+	print("V6 CHECKPOINT: mural solved and quests granted")
 	# Prism annex: actual graph-connectivity check on rotated pipe links.
 	if not check(open_trial(game, "prism_annex"), "Prism circuit annex opens"): return
 	if not check(not mechanic.circuit_open(game.trial_puzzle["rotations"]), "Conduit starts disconnected"): return
@@ -84,12 +88,14 @@ func run_tests() -> void:
 			if game.state == "v6_puzzle": game.press_trial_cell(i)
 	if not check(game.trial_completed.has("prism_annex"), "Beam reaches far exit only when pipe paths connect"): return
 	if not check(mechanic.circuit_open([0,0,0,0,0,0,0,0,0]), "A fully aligned path is recognized"): return
+	print("V6 CHECKPOINT: optical circuit solved")
 	# Solve equation puzzle instead of repeated rune pattern.
 	if not check(open_trial(game, "wind_observatory"), "Wind numeric-logic puzzle opens"): return
 	for i in range(3):
 		for count in range([2,3,1][i]):
 			if game.state == "v6_puzzle": game.press_trial_cell(i)
 	if not check(game.trial_completed.has("wind_observatory"), "Three dial equations must be satisfied simultaneously"): return
+	print("V6 CHECKPOINT: logic dials solved")
 	# Memory trial has unique sequences; wrong choice resets only that sequence.
 	if not check(open_trial(game, "bog_lanterns"), "Swamp memory puzzle opens"): return
 	var first_colour: int = int(game.trial_puzzle["sequence"][0])
@@ -102,6 +108,7 @@ func run_tests() -> void:
 		game.press_trial_cell(int(glyph))
 	if not check(game.trial_completed.has("bog_lanterns"), "Correct memory sequence restores the chamber"): return
 	print("PASS: pipe-connectivity, logic equations, memory sequence and nonpunishing hints")
+	print("V6 CHECKPOINT: memory sequence solved")
 	# Remaining chambers reuse systems with different seeds/art/story, not identical
 	# three-rune puzzles. Every mode must complete with an in-game solve action.
 	for id in ["forge_engine","tide_control","seed_arbor","nexus_memory"]:
@@ -124,6 +131,7 @@ func run_tests() -> void:
 				for glyph in game.trial_puzzle["sequence"].duplicate():
 					game.press_trial_cell(int(glyph))
 		if not check(game.trial_completed.has(id), "All variants complete and pay only once: " + id): return
+	print("V6 CHECKPOINT: all late-game annexes solved")
 	game.save_game()
 	if not check(game.load_game() and game.trial_completed.size() == 8, "All trial rewards persist safely across APK update"): return
 	game.start_new_game()
