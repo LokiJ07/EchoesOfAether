@@ -1,3 +1,15 @@
+# Echoes of Aether v8 — Optional Chime & Counterweight Encounters
+
+This source milestone introduces two **additional, optional playable puzzle encounters** without changing the original eight v6 puzzle chambers:
+
+- **Skyward Chime Altar** in Gale Spire, about 985 world units east of the stage entrance: watch/listen to a five-note symbol sequence and repeat it by tapping four differently pitched runes. Wrong inputs reset only the sequence. The visual preview remains available with sound off.
+- **Twin Tide Balances** in Temple of the Tide at the corresponding stage offset: cycle each of four weight stones among shelf, left pan, and right pan, solving the physical mass-placement condition of five units per pan.
+
+Each altar is drawn in the world, shows the existing context-aware INTERACT button nearby, opens the existing safe-to-exit landscape puzzle UI, and awards a relic/coins once. New completed flags save under `bonus_trial_completed`, default safely for existing v7 save files, and reset on New Adventure. All old v6 chambers, player HUD layouts, portal requirements and package identity remain unchanged.
+
+**Build verification:** the GitHub workflow now runs reusable mechanics checks and `tests/v8_optional_puzzles.gd` (actual main scene, interaction, wrong presses, solve, one-time rewards and save migration) after the existing v0.1–v7 regressions and before exporting an APK. Code committed is not proof of tests passing: check the latest Actions run. Physical Android touch/collision/visual playtesting remains necessary. The remaining proposed ghost, era, sonar, deciphering, stealth, restoration and branching narrative features are **not yet integrated into the live game**; they are only foundations or documented plans.
+
+---
 # Echoes of Aether v7 — Field Review & Deep Traversal
 
 This major update responds to **actual live Godot framebuffer captures** of v6: Moonhaven and Whisperwood rendered, but Abyssal Depths was incorrectly showing a blank/dark area after physics, and puzzle artwork/control labels were small.
