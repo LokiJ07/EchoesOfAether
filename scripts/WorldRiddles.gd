@@ -5,7 +5,8 @@ extends Node2D
 
 const MECHANICS = preload("res://scripts/AetherMechanics.gd")
 const MIRROR_START := 46600.0
-const PHASE_PRISMS := [MIRROR_START + 780.0, MIRROR_START + 1850.0]
+# The second prism must stay clear of the old annex portal at start+1798.
+const PHASE_PRISMS := [MIRROR_START + 780.0, MIRROR_START + 1980.0]
 const BRIDGE_LEFT := MIRROR_START + 1200.0
 const BRIDGE_RIGHT := MIRROR_START + 1680.0
 const MIRROR_WALL := MIRROR_START + 2140.0
