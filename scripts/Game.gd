@@ -167,6 +167,7 @@ var bonus_trial_completed: Array = []
 var echo_chamber
 var world_riddles
 var v9_art: Dictionary = {}
+var kael_art: Dictionary = {}
 var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
 var trial_hint_text := ""
@@ -229,6 +230,7 @@ func _ready() -> void:
 	load_v5_generated_art()
 	load_v6_generated_art()
 	load_v9_panorama_art()
+	load_kael_character_art()
 	load_premium_art()
 	load_realm_stage("hub")
 	echo_chamber = ECHO_CHAMBER.new()
@@ -249,6 +251,16 @@ func _ready() -> void:
 	sfx.volume_db = -11.0
 	add_child(sfx)
 	update_camera()
+
+func load_kael_character_art() -> void:
+	# Aetherbound Explorer: five original transparent vector poses, cached once
+	# for offline Android. Original older hero PNGs remain as safe fallback.
+	for pose_name in ["idle", "run", "jump", "attack", "guard"]:
+		var path: String = "res://assets/v10_kael_%s.svg" % pose_name
+		if ResourceLoader.exists(path):
+			var resource: Resource = load(path)
+			if resource is Texture2D:
+				kael_art[pose_name] = resource
 
 func load_v9_panorama_art() -> void:
 	# Original, offline panorama-sized illustrations. Never upscale short UI assets
@@ -2791,17 +2803,20 @@ func _draw() -> void:
 		var pose_data: Dictionary = hero_animation_params()
 		var pose: String = pose_data["pose"]
 		var art: Texture2D = HERO_JUMP if pose == "jump" else (HERO_RUN if pose in ["run", "dash", "attack"] else HERO_IDLE)
+		var kael_pose: String = "jump" if pose == "jump" else ("attack" if pose == "attack" else ("run" if pose in ["run", "dash"] else ("guard" if pose == "guard" else "idle")))
+		if kael_art.has(kael_pose):
+			art = kael_art[kael_pose]
 		if pose == "hit": hero_tint = Color("ffb7ae")
 		if pose == "heal": hero_tint = Color("b2ffcc")
 		if pose == "guard": hero_tint = Color("c0e8ff")
 		# Mirroring the draw transform makes the character face the travel direction.
 		if dash_timer > 0.0:
 			draw_set_transform(player_pos + Vector2(-float(facing) * 40.0, 0), 0.0, hero_sprite_scale())
-			draw_texture_rect(art, Rect2(-29, -78, 58, 78), false, Color(0.4, 0.9, 1, 0.26))
+			draw_texture_rect(art, Rect2(-34, -94, 68, 94), false, Color(0.4, 0.9, 1, 0.26))
 		var pose_scale: Vector2 = pose_data["squash"]
 		pose_scale.x *= float(facing)
 		draw_set_transform(player_pos + pose_data["offset"], float(pose_data["angle"]) * float(facing), pose_scale)
-		draw_texture_rect(art, Rect2(-29, -78, 58, 78), false, hero_tint)
+		draw_texture_rect(art, Rect2(-34, -94, 68, 94) if kael_art.has(kael_pose) else Rect2(-29, -78, 58, 78), false, hero_tint)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if guard_window > 0.0:
 			draw_arc(player_pos + Vector2(0, -42), 56.0, 0.0, TAU, 44, Color(0.47, 0.91, 1.0, 0.85), 4.0, true)
