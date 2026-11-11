@@ -25,9 +25,9 @@ func run_tests() -> void:
 	game.dungeon_clears = ["tide_temple", "verdant_vault"]
 	if not check(game.enter_realm("gale_spire"), "Reach Gale Spire"): return
 	game.dialogue = ""
-	game.player_pos = Vector2(float(game.current_realm()["start"]) + 985.0, game.FLOOR_Y)
+	game.player_pos = Vector2(float(game.current_realm()["start"]) + 1350.0, game.FLOOR_Y)
 	game.state = "playing"
-	if not check(game.nearby_bonus_pedestal() == "gale_chimes" and game.nearby_npc() == "trial_puzzle", "Chime altar is an interactable object"): return
+	if not check(game.nearby_bonus_pedestal() == "gale_chimes" and game.nearby_npc() == "trial_puzzle" and game.nearby_secret_cache() == "", "Chime altar never overlaps a cache or portal interaction"): return
 	var first_coins: int = game.coins
 	game.interact()
 	if not check(game.state == "v6_puzzle" and game.trial_puzzle["kind"] == "melody", "Chime puzzle opens using mobile modal"): return
@@ -48,9 +48,9 @@ func run_tests() -> void:
 
 	if not check(game.enter_realm("tide_temple"), "Reach Tide Temple"): return
 	game.dialogue = ""
-	game.player_pos = Vector2(float(game.current_realm()["start"]) + 985.0, game.FLOOR_Y)
+	game.player_pos = Vector2(float(game.current_realm()["start"]) + 1350.0, game.FLOOR_Y)
 	game.state = "playing"
-	if not check(game.nearby_bonus_pedestal() == "tide_scales", "Counterweight altar is reachable"): return
+	if not check(game.nearby_bonus_pedestal() == "tide_scales" and game.nearby_npc() == "trial_puzzle" and game.nearby_secret_cache() == "", "Counterweight altar is reachable and not masked by a hidden cache"): return
 	game.interact()
 	if not check(game.trial_puzzle["kind"] == "scale", "Real counterweight puzzle opens"): return
 	game.press_trial_cell(0)
