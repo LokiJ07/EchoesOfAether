@@ -1,5 +1,7 @@
 # ECHOES OF AETHER — v5.0 PORTAL RPG MILESTONE
 
+**New in this revision:** The Journal has touch-friendly TRACK / UNPIN controls for all unfinished quests. The chosen quest appears as a compact progress objective while playing, survives save/load and Android updates, and automatically advances after completion. Existing saves safely fall back to the next available objective. The full v3–v5 blueprint is in [V5 Master Plan](docs/V5_MASTER_PLAN.md).
+
 **Developed from the v3 + v4 + v5 roadmap.** The 65k internal coordinate world is now split into **19 real Godot PackedScene destinations** with individual camera bounds and interactable portal gates. Players no longer walk across visible seams between realms. The old world-space offsets stay private to preserve local Android saves. The new Journal tracks **30 one-time quests**, eight additional dungeon guardians have encounter rooms, and bosses rotate through four attack patterns instead of repeating a single projectile fan.
 
 **Playable locations:** Moonhaven hub, Whisperwood, Sunken Ruins, Crystal Hollow, Celestial Highlands, Shadowfen, Emberfall, Cinder Vault, Abyssal Depths, Temple of the Tide, Everdawn Gardens, Verdant Sanctum, Aether Nexus, Rootbound Crypt, Mirror Vault, Gale Spire, Mire Catacombs, Echo Labyrinth and Heart of the Core. See [V5 Master Plan](docs/V5_MASTER_PLAN.md) for the full feature matrix and follow-on polish.

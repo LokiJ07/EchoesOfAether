@@ -99,9 +99,9 @@ for id in realm_ids:
     assert 'realm_id = "'+id+'"' in path.read_text(), "Wrong scene identity for "+id
 for marker in ["func enter_realm(", "func load_realm_stage(", "func realign_realm_to_position(",
     "func is_realm_unlocked(", "func record_quest_event(", "func quest_progress(",
-    "func v5_story_label(", "V5_SAVE_VERSION := 50", "func boss_attack("]:
+    "func v5_story_label(", "func pin_quest(", "func pinned_quest(", "func clear_quest_pin(", "V5_SAVE_VERSION := 50", "func boss_attack("]:
     assert marker in contents, "Missing v5 RPG mechanic: "+marker
-for marker in ["func draw_portal_network(", "func draw_quests(", "func draw_v5_victory("]:
+for marker in ["func draw_portal_network(", "func draw_quests(", "func draw_v5_victory(", '"pin:" + str(q["id"])']:
     assert marker in hud, "Missing v5 interactive UI: "+marker
 assert (r/"docs/V5_MASTER_PLAN.md").is_file()
 assert (r/"tests/v5_realms.gd").is_file() and "tests/v5_realms.gd" in workflow

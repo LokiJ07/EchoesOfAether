@@ -163,6 +163,8 @@ var realm_stage: Node2D
 var realm_transition := 0.0
 var portal_page := 0
 var journal_page := 0
+# Pinned journal objective; empty string means choose the next unfinished quest.
+var tracked_quest_id := ""
 var quest_counts: Dictionary = {}
 var quest_claimed: Array = []
 var discovered_realm_ids: Array = ["hub"]
@@ -1320,6 +1322,30 @@ func nearby_story_npc() -> bool:
 	var region: Dictionary = current_realm()
 	return region.get("kind", "") != "hub" and absf(player_pos.x - float(region.get("start", 0.0)) - 610.0) < 92.0 and absf(player_pos.y - FLOOR_Y) < 125.0
 
+func pinned_quest() -> Dictionary:
+	if tracked_quest_id != "":
+		for q in REALM_CATALOG.QUESTS:
+			if str(q["id"]) == tracked_quest_id and not quest_claimed.has(tracked_quest_id):
+				return q
+	# A finished pinned quest automatically falls through to the next available
+	# objective. Never show stale completed progress during combat.
+	for q in REALM_CATALOG.QUESTS:
+		if not quest_claimed.has(str(q["id"])) and is_realm_unlocked(str(q["region"])):
+			return q
+	return {}
+
+func pin_quest(id: String) -> bool:
+	for q in REALM_CATALOG.QUESTS:
+		if str(q["id"]) == id and not quest_claimed.has(id):
+			tracked_quest_id = id
+			save_game()
+			return true
+	return false
+
+func clear_quest_pin() -> void:
+	tracked_quest_id = ""
+	save_game()
+
 func record_quest_event(event_id: String, amount: int = 1) -> void:
 	for quest in REALM_CATALOG.QUESTS:
 		if str(quest["event"]) != event_id or quest_claimed.has(str(quest["id"])):
@@ -1329,6 +1355,8 @@ func record_quest_event(event_id: String, amount: int = 1) -> void:
 		quest_counts[id] = count
 		if count >= int(quest["target"]):
 			quest_claimed.append(id)
+			if tracked_quest_id == id:
+				tracked_quest_id = ""
 			coins += int(quest["coins"])
 			gain_exp(int(quest["exp"]))
 			show_message("QUEST COMPLETE: %s (+%d coins)" % [str(quest["title"]), int(quest["coins"])], 4.0)
@@ -1672,6 +1700,7 @@ func start_new_game() -> void:
 	realm_transition = 0.0
 	portal_page = 0
 	journal_page = 0
+	tracked_quest_id = ""
 	world_bosses_cleared = [false, false, false]
 	expansion_completed = false
 	coyote_timer = 0.0
@@ -1733,6 +1762,7 @@ func save_game() -> void:
 		"emberling_unlocked": emberling_unlocked, "emberling_active": emberling_active,
 		"ember_hunts": ember_hunt_counts, "ember_hunt_claimed": ember_hunt_claimed,
 		"active_realm": current_realm_id, "quest_counts": quest_counts,
+		"tracked_quest_id": tracked_quest_id,
 		"quest_claimed": quest_claimed, "discovered_realms": discovered_realm_ids,
 		"dungeon_clears": dungeon_clears, "story_seen": story_seen,
 		"kill_counts": enemy_kill_counts, "map_visits": map_visit_counts,
@@ -1851,6 +1881,15 @@ func load_game() -> bool:
 	if not quest_counts is Dictionary: quest_counts = {}
 	quest_claimed = data.get("quest_claimed", [])
 	if not quest_claimed is Array: quest_claimed = []
+	tracked_quest_id = str(data.get("tracked_quest_id", ""))
+	if tracked_quest_id != "":
+		var known: bool = false
+		for q in REALM_CATALOG.QUESTS:
+			if str(q["id"]) == tracked_quest_id:
+				known = true
+				break
+		if not known or quest_claimed.has(tracked_quest_id):
+			tracked_quest_id = ""
 	discovered_realm_ids = data.get("discovered_realms", ["hub"])
 	if not discovered_realm_ids is Array: discovered_realm_ids = ["hub"]
 	if not discovered_realm_ids.has("hub"): discovered_realm_ids.append("hub")

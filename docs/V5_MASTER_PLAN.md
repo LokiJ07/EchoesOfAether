@@ -58,3 +58,13 @@ Dungeon content is one connected area per instance at this milestone, with real 
 4. Each boss must rotate through four patterns and visibly warn before attacks. Guardian rewards must be one-time.
 5. Godot headless CI must pass **all older smoke tests** plus v5 real-map/quest/attack/final-boss tests; Android debug APK must retain app identity/signature with a higher versionCode.
 6. A successful APK build is **not** proof of polished Android gameplay. Real physical-device screenshot/video testing remains necessary for clipping, aspect ratios, sprite art style, and control comfort.
+
+
+## v5.0 Journal polish — quest pinning (implemented)
+
+- The player can tap **TRACK** next to any incomplete quest in the Journal. The objective appears as a small on-screen label with actual progress; the entire world remains playable without any quest overlay covering the action.
+- Tapping **UNPIN** returns to automatically selecting the first available unfinished objective.
+- When a tracked quest completes, the pin is cleared and the next relevant objective is displayed. Progress and the chosen pin survive ordinary save/load and Android app updates; older v2/v5 save files without this field safely choose an automatic objective.
+- CI includes a synthetic touch-button test, persistent reload test, automatic completion and fallback test, without bypassing the original 30-quest story progression.
+
+**Next deepening ideas (not implemented in this patch):** optional bounty-board chains with meaningful dialogue, branching NPC replies, scene-local key/door puzzles, unique Abyssal/Everdawn/Nexus Higgsfield artwork when credits are available, narrated cutscene beats, more equipment categories, and dungeon-specific enemy tactics. These should be developed and measured as separate gameplay milestones rather than claimed complete from the roadmap alone.

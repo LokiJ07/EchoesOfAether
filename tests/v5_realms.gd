@@ -88,6 +88,30 @@ func run_tests() -> void:
 	game.record_quest_event("kill:slime", 4)
 	if not ok(game.coins == reward_once, "Quests cannot be farmed for duplicate rewards"): return
 	if not ok(game.quest_total() >= 30 and game.quest_claimed.size() >= 1, "Journal reports real persistent quests"): return
+	# Pinning a quest must update the real HUD, survive save/load, and clear
+	# automatically when the objective finishes. It never blocks movement.
+	var focus: Dictionary = {}
+	for q in catalog.QUESTS:
+		if q["event"] == "kill:moth":
+			focus = q
+	if not ok(not focus.is_empty() and not game.quest_claimed.has(focus["id"]), "Uncompleted quest available for tracking"): return
+	game.state = "quests"
+	var focus_id: String = str(focus["id"])
+	game.hud.menu_buttons = [{"rect": Rect2(35, 40, 150, 44), "key": "pin:" + focus_id}]
+	if not ok(game.hud.handle_menu_press(Vector2(90, 60)), "Actual journal TRACK button responds"): return
+	if not ok(game.tracked_quest_id == focus_id and game.pinned_quest().get("id", "") == focus_id, "Tracked quest drives objective HUD"): return
+	game.save_game()
+	if not ok(game.load_game() and game.tracked_quest_id == focus_id, "Tracked quest survives Android save reload"): return
+	game.record_quest_event("kill:moth", 3)
+	if not ok(game.quest_claimed.has(focus_id) and game.tracked_quest_id == "", "Quest completion clears stale tracked objective"): return
+	if not ok(not game.pinned_quest().is_empty(), "HUD automatically falls back to next unfinished quest"): return
+	game.hud.menu_buttons = [{"rect": Rect2(35, 40, 150, 44), "key": "pin:q06"}]
+	game.state = "quests"
+	game.hud.handle_menu_press(Vector2(90, 60))
+	if not ok(game.tracked_quest_id == "q06", "Journal can choose another target"): return
+	game.hud.handle_menu_press(Vector2(90, 60))
+	if not ok(game.tracked_quest_id == "", "Tap UNPIN to restore automatic objective selection"): return
+	print("PASS: tracked RPG journal quests, real touch targets, persistence and automatic completion")
 	print("PASS: 30 persistent multi-realm quests with one-time rewards and story progress")
 	game.state = "playing"
 	if not ok(not game.enter_realm("abyss"), "Chapter III portal remains locked until Cinder Warden"): return

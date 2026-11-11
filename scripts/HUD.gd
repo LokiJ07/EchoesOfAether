@@ -195,6 +195,14 @@ func handle_menu_press(pos: Vector2) -> bool:
 		if code.begins_with("realm:"):
 			game.enter_realm(code.trim_prefix("realm:"))
 			return true
+		if code.begins_with("pin:"):
+			var id: String = code.trim_prefix("pin:")
+			if game.tracked_quest_id == id:
+				game.clear_quest_pin()
+			else:
+				game.pin_quest(id)
+			queue_redraw()
+			return true
 		match entry["key"]:
 			"new": game.start_new_game()
 			"continue": game.continue_game()
@@ -462,7 +470,12 @@ func draw_game_status(w: float, h: float) -> void:
 		var quest_label = ("TALK TO MIRA  (%d/3 SEEDS)" % game.seeds) if game.quest_stage == 0 else ("AETHER SEEDS %d/3" % game.seeds if game.quest_stage == 1 else "DEFEAT THE WARDEN")
 		centered(bounds.get_center().x, quest_y, quest_label, 14, Color("e4c891"))
 	else:
-		centered(bounds.get_center().x, quest_y, game.v5_story_label(), 14, Color("a7f2bc"))
+		var focused: Dictionary = game.pinned_quest()
+		if not focused.is_empty():
+			var focus_text: String = "%s  %d/%d" % [str(focused["title"]), game.quest_progress(focused), int(focused["target"])]
+			centered(bounds.get_center().x, quest_y, focus_text, 14, Color("a7f2bc"))
+		else:
+			centered(bounds.get_center().x, quest_y, game.v5_story_label(), 14, Color("a7f2bc"))
 	for i in range(4):
 		var label = ["BAG", "QUEST", "MAP", "PAUSE"][i]
 		var key = ["bag", "quest", "map", "pause"][i]
@@ -593,8 +606,13 @@ func draw_quests(w: float, h: float) -> void:
 		var finished: bool = game.quest_claimed.has(q["id"])
 		var fill: Color = Color("1c413e") if finished else Color("1c3043")
 		box(Rect2(panel.position.x + 29.0, top, panel.size.x - 58.0, 51.0), fill, Color("678d85"), 1.0)
-		text(Vector2(panel.position.x + 43.0, top + 21.0), ("[DONE]  " if finished else "[  ]  ") + str(q["title"]), 17, Color("a4f0cd") if finished else Color("f0e6cd"))
+		text(Vector2(panel.position.x + 43.0, top + 21.0), ("[DONE]  " if finished else "[  ]  ") + str(q["title"]), 16, Color("a4f0cd") if finished else Color("f0e6cd"))
 		text(Vector2(panel.position.x + 43.0, top + 43.0), str(q["region"]).to_upper() + "  •  %d/%d  •  +%d COINS" % [game.quest_progress(q), int(q["target"]), int(q["coins"])], 13, Color("a9cbcf"))
+		if not finished:
+			var pinned: bool = game.tracked_quest_id == str(q["id"])
+			var pin_rect := Rect2(panel.end.x - 156.0, top + 9.0, 116.0, 33.0)
+			menu_button(pin_rect, "UNPIN" if pinned else "TRACK", "pin:" + str(q["id"]),
+				Color("ffe099") if pinned else Color("80cbdc"))
 	var footer_y: float = panel.end.y - 61.0
 	menu_button(Rect2(panel.position.x + 30.0, footer_y, 164.0, 43.0), "PREVIOUS", "journal_previous", Color("b1c9dc"))
 	menu_button(Rect2(panel.end.x - 194.0, footer_y, 164.0, 43.0), "NEXT PAGE", "journal_next", Color("b1c9dc"))

@@ -209,6 +209,7 @@ jobs:
           /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v5_realms.gd 2>&1 | tee /tmp/godot-v5.log
           grep -Fq 'PASS: 19 separate portal PackedScenes, non-seam cameras, optional dungeon guardian and story' /tmp/godot-v5.log
           grep -Fq 'PASS: 30 persistent multi-realm quests with one-time rewards and story progress' /tmp/godot-v5.log
+          grep -Fq 'PASS: tracked RPG journal quests, real touch targets, persistence and automatic completion' /tmp/godot-v5.log
           grep -Fq 'PASS: unique combat patterns, Abyssal Depths, Everdawn, Aether Nexus, final boss and persistence' /tmp/godot-v5.log
           grep -Fq 'PASS: safe v2 save migration, fixed signing identity and unchanged custom control settings' /tmp/godot-v5.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V5 FAILED)' /tmp/godot-v5.log; then exit 1; fi
