@@ -7,6 +7,7 @@ const REALM_CATALOG = preload("res://scripts/RealmCatalog.gd")
 const V5_SAVE_VERSION := 50
 const V6_SAVE_VERSION := 60
 const PUZZLE_ENGINE = preload("res://scripts/PuzzleEngine.gd")
+const ECHO_CHAMBER = preload("res://scripts/EchoLabyrinth.gd")
 const BONUS_TRIALS = {
 	"gale_chimes": {"realm": "gale_spire", "name": "SKYWARD CHIME ALTAR", "type": "melody", "reward": 115, "offset": 1350.0},
 	"tide_scales": {"realm": "tide_temple", "name": "TWIN TIDE BALANCES", "type": "scale", "reward": 145, "offset": 1350.0}
@@ -162,6 +163,7 @@ var secret_caches: Array = []
 var skyshards_collected: Array = []
 var trial_completed: Array = []
 var bonus_trial_completed: Array = []
+var echo_chamber: Node2D
 var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
 var trial_hint_text := ""
@@ -225,6 +227,8 @@ func _ready() -> void:
 	load_v6_generated_art()
 	load_premium_art()
 	load_realm_stage("hub")
+	echo_chamber = ECHO_CHAMBER.new()
+	add_child(echo_chamber)
 	camera.position = Vector2(575, 316)
 	camera.make_current()
 	music = AudioStreamPlayer.new()
@@ -654,6 +658,7 @@ func _physics_process(dt: float) -> void:
 			return
 		update_moving_platforms(dt)
 		update_player(dt)
+		echo_chamber.update_chamber(dt)
 		update_enemies(dt)
 		update_projectiles(dt)
 		update_loot(dt)
@@ -696,11 +701,14 @@ func update_player(dt: float) -> void:
 		velocity.x = move_toward(velocity.x, target_speed, (2600.0 if absf(axis) > 0.08 else 2400.0) * dt)
 	velocity.y = minf(900.0, velocity.y + GRAVITY * dt)
 	var old_foot := player_pos.y
+	var old_x: float = player_pos.x
 	player_pos += velocity * dt
 	var travel_area: Dictionary = current_realm()
 	var area_min: float = float(travel_area["start"]) + 62.0
 	var area_max: float = float(travel_area["end"]) - 62.0
 	player_pos.x = clampf(player_pos.x, area_min, area_max)
+	if echo_chamber != null:
+		echo_chamber.block_player(old_x)
 	# Every realm is a sealed scene. Walking cannot expose the neighboring art seam.
 	if absf(player_pos.x - area_min) < 1.0 or absf(player_pos.x - area_max) < 1.0:
 		velocity.x = 0.0
@@ -1465,6 +1473,8 @@ func enter_realm(id: String) -> bool:
 	if destination.is_empty() or not is_realm_unlocked(id):
 		show_message("REALM LOCKED: Complete the previous chapter.", 3.0)
 		return false
+	if echo_chamber != null:
+		echo_chamber.reset_runtime()
 	load_realm_stage(id)
 	player_pos = Vector2(float(destination["arrival"]), FLOOR_Y)
 	checkpoint_x = player_pos.x
@@ -1869,6 +1879,7 @@ func nearby_npc() -> String:
 	if nearby_stage_portal() != "": return "portal"
 	if nearby_trial_pedestal() or nearby_bonus_pedestal() != "": return "trial_puzzle"
 	if nearby_story_npc(): return "story"
+	if echo_chamber != null and echo_chamber.near_recorder(): return "echo_record"
 	if nearby_portal_index() >= 0: return "portal"
 	if nearby_ember_brazier() >= 0: return "ember_brazier"
 	if expansion_completed and not emberling_unlocked and absf(player_pos.x - 16870.0) < 105.0: return "emberling"
@@ -1884,6 +1895,8 @@ func interact() -> void:
 	if state != "playing": return
 	if nearby_secret_cache() != "":
 		collect_secret_cache()
+		return
+	if echo_chamber != null and echo_chamber.try_start_recording():
 		return
 	if nearby_trial_pedestal():
 		open_trial_puzzle()
@@ -2025,6 +2038,8 @@ func start_new_game() -> void:
 	current_realm_id = "hub"
 	trial_completed.clear()
 	bonus_trial_completed.clear()
+	echo_chamber.completed = false
+	echo_chamber.reset_runtime()
 	secret_caches.clear()
 	skyshards_collected.clear()
 	trial_puzzle.clear()
@@ -2103,6 +2118,7 @@ func save_game() -> void:
 		"ember_hunts": ember_hunt_counts, "ember_hunt_claimed": ember_hunt_claimed,
 		"active_realm": current_realm_id, "quest_counts": quest_counts,
 		"trial_completed": trial_completed, "bonus_trial_completed": bonus_trial_completed,
+		"echo_trial_complete": echo_chamber.completed,
 		"secret_caches": secret_caches, "skyshards_collected": skyshards_collected,
 		"tracked_quest_id": tracked_quest_id,
 		"quest_claimed": quest_claimed, "discovered_realms": discovered_realm_ids,
@@ -2219,6 +2235,8 @@ func load_game() -> bool:
 	checkpoint_x = float(data.get("checkpoint", 145))
 	var restored_realm: String = str(data.get("active_realm", REALM_CATALOG.from_x(checkpoint_x)))
 	load_realm_stage(restored_realm)
+	echo_chamber.reset_runtime()
+	echo_chamber.completed = bool(data.get("echo_trial_complete", false))
 	quest_counts = data.get("quest_counts", {})
 	if not quest_counts is Dictionary: quest_counts = {}
 	quest_claimed = data.get("quest_claimed", [])
