@@ -282,6 +282,11 @@ const STORIES = {
 		"MIRA: Every restored realm has brought us to the Aether Nexus.",
 		"MIRA: Enter the Heart of the Core. The truth waits beyond the final portal."
 	],
+	"echo_labyrinth": [
+		"ARCHIVIST SEN: The chamber remembers the hero's last ten seconds.",
+		"SEN: Touch the recorder, walk onto the glowing pressure plate, then hold it.",
+		"SEN: When your ghost replays the past, hurry through the gate to claim the hidden relic."
+	],
 	"root_gallery": ["ELIAN: The ranger mural was shattered into eight fragments.", "ELIAN: The empty ninth space lets you shift each piece into its rightful place."],
 	"prism_annex": ["VERA: Reflected light must cross the crystal pipes to the exit.", "VERA: Turn each prism to join the shining path."],
 	"wind_observatory": ["AURI: Three dials govern the observatory's ancient winds.", "AURI: Pairwise sums reveal the true numbers. The mechanism has no timer."],
@@ -619,7 +624,8 @@ const QUESTS = [
 	{"id": "q65", "title": "Recover the Star-Crown Skyshard", "event": "skyshard:nexus", "target": 1, "region": "nexus", "coins": 206, "exp": 113},
 	{"id": "q66", "title": "Traverse the Rootbound Upper Gallery", "event": "skyshard:rootcrypt", "target": 1, "region": "rootcrypt", "coins": 218, "exp": 119},
 	{"id": "q67", "title": "Reach the Tidal Temple's High Altar", "event": "skyshard:tide_temple", "target": 1, "region": "tide_temple", "coins": 230, "exp": 125},
-	{"id": "q68", "title": "Climb the Heart of the Core", "event": "skyshard:nexus_core", "target": 1, "region": "nexus_core", "coins": 242, "exp": 131}
+	{"id": "q68", "title": "Climb the Heart of the Core", "event": "skyshard:nexus_core", "target": 1, "region": "nexus_core", "coins": 242, "exp": 131},
+	{"id": "q69", "title": "Replay Your Shadow in the Echo Labyrinth", "event": "trial:echo_labyrinth", "target": 1, "region": "echo_labyrinth", "coins": 180, "exp": 95}
 ]
 
 static func region(id: String) -> Dictionary:
