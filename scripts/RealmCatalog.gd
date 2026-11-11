@@ -108,7 +108,7 @@ const REGIONS = [
 		"parent": "hub",
 		"dungeon": "tide_temple",
 		"sky": "#0d3854",
-		"art": "v1_bg_crystal"
+		"art": "v5_generated_abyss"
 	},
 	{
 		"id": "tide_temple",
@@ -120,7 +120,7 @@ const REGIONS = [
 		"parent": "abyss",
 		"dungeon": "",
 		"sky": "#092e48",
-		"art": "v1_bg_crystal"
+		"art": "v5_generated_tide_temple"
 	},
 	{
 		"id": "garden",
@@ -132,7 +132,7 @@ const REGIONS = [
 		"parent": "hub",
 		"dungeon": "verdant_vault",
 		"sky": "#245640",
-		"art": "v1_bg_sky"
+		"art": "v5_generated_garden"
 	},
 	{
 		"id": "verdant_vault",
@@ -144,7 +144,7 @@ const REGIONS = [
 		"parent": "garden",
 		"dungeon": "",
 		"sky": "#173b2f",
-		"art": "v1_bg_marsh"
+		"art": "v5_generated_verdant_vault"
 	},
 	{
 		"id": "nexus",
@@ -156,7 +156,7 @@ const REGIONS = [
 		"parent": "hub",
 		"dungeon": "nexus_core",
 		"sky": "#292251",
-		"art": "v1_bg_sky"
+		"art": "v5_generated_nexus"
 	},
 	{
 		"id": "rootcrypt",
@@ -168,7 +168,7 @@ const REGIONS = [
 		"parent": "forest",
 		"dungeon": "",
 		"sky": "#172d27",
-		"art": "v1_bg_marsh"
+		"art": "v5_generated_rootcrypt"
 	},
 	{
 		"id": "mirror_vault",
@@ -228,7 +228,7 @@ const REGIONS = [
 		"parent": "nexus",
 		"dungeon": "",
 		"sky": "#201e40",
-		"art": "v1_bg_sky"
+		"art": "v5_generated_nexus_core"
 	}
 ]
 const STORIES = {

@@ -17,6 +17,16 @@ func run_tests() -> void:
 	await process_frame
 	game.start_new_game()
 	var catalog = game.REALM_CATALOG
+	# The image-generation-credit-independent renderer must package actually
+	# different Abyssal, Garden, Nexus and dungeon art, not reused mockups.
+	var new_art := ["abyss", "tide_temple", "garden", "verdant_vault", "nexus", "nexus_core", "rootcrypt"]
+	if not ok(game.v5_art.size() == new_art.size(), "Seven locally generated original PNG textures loaded into Godot"): return
+	for scene_id in new_art:
+		var scene_data: Dictionary = catalog.region(scene_id)
+		if not ok(str(scene_data["art"]) == "v5_generated_" + scene_id, "Area catalog points to its own generated artwork: " + scene_id): return
+		var tex: Texture2D = game.v5_art.get(scene_id, null)
+		if not ok(tex != null and tex.get_width() == 1600 and tex.get_height() == 720, "Distinct panorama texture imported for " + scene_id): return
+	print("PASS: seven original offline generated realm backgrounds directly imported into Godot")
 	if not ok(catalog.REGIONS.size() == 19 and catalog.QUESTS.size() >= 30, "19 real scenes and 30 quests configured"): return
 	if not ok(catalog.DUNGEON_BOSSES.size() == 8 and game.current_realm_id == "hub", "Dungeon guardians configured and hub scene active"): return
 	for entry in catalog.REGIONS:

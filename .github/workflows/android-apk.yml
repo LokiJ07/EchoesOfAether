@@ -66,6 +66,25 @@ jobs:
             git push origin HEAD:main
           fi
 
+      - name: Produce unique v5 realm panoramas locally without generation credits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build_v5_art.py
+
+      - name: Preserve locally generated PNGs as permanent game assets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        shell: bash
+        run: |
+          git add assets/v5_generated_*.png
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "assets: preserve seven original locally generated realm panoramas"
+            git push origin HEAD:main
+          fi
+
       - name: Set up Java 17 before Android SDK
         uses: actions/setup-java@v4
         with:
@@ -208,6 +227,7 @@ jobs:
           set -o pipefail
           /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v5_realms.gd 2>&1 | tee /tmp/godot-v5.log
           grep -Fq 'PASS: 19 separate portal PackedScenes, non-seam cameras, optional dungeon guardian and story' /tmp/godot-v5.log
+          grep -Fq 'PASS: seven original offline generated realm backgrounds directly imported into Godot' /tmp/godot-v5.log
           grep -Fq 'PASS: 30 persistent multi-realm quests with one-time rewards and story progress' /tmp/godot-v5.log
           grep -Fq 'PASS: tracked RPG journal quests, real touch targets, persistence and automatic completion' /tmp/godot-v5.log
           grep -Fq 'PASS: unique combat patterns, Abyssal Depths, Everdawn, Aether Nexus, final boss and persistence' /tmp/godot-v5.log

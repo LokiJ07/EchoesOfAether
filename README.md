@@ -1,5 +1,14 @@
 # ECHOES OF AETHER — v5.0 PORTAL RPG MILESTONE
 
+## v5 original-art fallback (no Higgsfield credits required)
+
+This release also embeds **seven different locally generated PNG panoramas** in the actual Godot application: Abyssal Depths, Temple of the Tide, Everdawn Gardens, Verdant Sanctum, Aether Nexus, Heart of the Core, and Rootbound Crypt.
+
+`tools/build_v5_art.py` draws each original fantasy environment using deterministic Pillow rendering (landscape layers, distinct architecture, lights and habitat-specific plants/crystals/ruins). GitHub Actions runs this script before importing Godot assets and commits the PNGs into `assets/` so future builds remain offline. The camera uses one panorama per isolated map with no repeated-image seam. This procedural art is intentionally different from the separate high-resolution concept pictures generated in chat, which cannot currently be uploaded into GitHub using the available connection.
+
+Old Android package identity, signing key, save migration and customized touch controls stay unchanged. The v5 gameplay tests now open every generated `Texture2D` and verify it is connected to the correct scene.
+
+
 **New in this revision:** The Journal has touch-friendly TRACK / UNPIN controls for all unfinished quests. The chosen quest appears as a compact progress objective while playing, survives save/load and Android updates, and automatically advances after completion. Existing saves safely fall back to the next available objective. The full v3–v5 blueprint is in [V5 Master Plan](docs/V5_MASTER_PLAN.md).
 
 **Developed from the v3 + v4 + v5 roadmap.** The 65k internal coordinate world is now split into **19 real Godot PackedScene destinations** with individual camera bounds and interactable portal gates. Players no longer walk across visible seams between realms. The old world-space offsets stay private to preserve local Android saves. The new Journal tracks **30 one-time quests**, eight additional dungeon guardians have encounter rooms, and bosses rotate through four attack patterns instead of repeating a single projectile fan.

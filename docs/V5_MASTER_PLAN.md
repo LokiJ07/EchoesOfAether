@@ -68,3 +68,10 @@ Dungeon content is one connected area per instance at this milestone, with real 
 - CI includes a synthetic touch-button test, persistent reload test, automatic completion and fallback test, without bypassing the original 30-quest story progression.
 
 **Next deepening ideas (not implemented in this patch):** optional bounty-board chains with meaningful dialogue, branching NPC replies, scene-local key/door puzzles, unique Abyssal/Everdawn/Nexus Higgsfield artwork when credits are available, narrated cutscene beats, more equipment categories, and dungeon-specific enemy tactics. These should be developed and measured as separate gameplay milestones rather than claimed complete from the roadmap alone.
+
+
+## Local-original-art pipeline for v5 realms — implemented
+
+If Higgsfield generation credits are unavailable, the CI produces seven self-contained original panoramas with `tools/build_v5_art.py` using Pillow. They are committed as `assets/v5_generated_*.png` and loaded/cached in the Godot renderer for Abyssal, Tide Temple, Everdawn, Verdant Vault, Aether Nexus, Nexus Core and Rootbound Crypt. The offline test suite verifies the exact image paths, dimensions and scene-to-texture bindings. This removes the placeholder-reused backgrounds in those seven locations without adding any external runtime dependency.
+
+The four high-resolution concept pictures made in chat show a richer future art direction; they are **not** the exact procedural PNGs in the APK. Real Pixel-Art sprite polish, parallax animation, and physical-phone visual acceptance remain necessary before declaring the art final.

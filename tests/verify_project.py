@@ -111,3 +111,17 @@ print("PASS: 19 independent playable realm scenes, 8 dungeon guardians and 30 tr
 assert "draw_texture_rect_region(tex, Rect2(px" not in contents, "Tiled v5 backgrounds create visible seams"
 assert "func draw_realm_backdrop(" in contents and "func draw_v2_background(" in contents
 assert "SKIP STORY" in hud and "game.story_queue.clear()" in hud, "Long story scenarios need a working skip action"
+
+# New v5 credit-free original art pipeline: generated PNGs must be available
+# before the editor import, and individual new areas must not share art paths.
+local_scenes = ["abyss","tide_temple","garden","verdant_vault","nexus","nexus_core","rootcrypt"]
+assert (r/"tools/build_v5_art.py").is_file()
+assert 'tools/build_v5_art.py' in workflow, "Art generation missing from Android pipeline"
+for scene in local_scenes:
+    assert '"id": "'+scene+'"' in catalog
+    assert '"art": "v5_generated_'+scene+'"' in catalog
+    assert (r/"assets"/("v5_generated_"+scene+".png")).is_file(), "Missing original art for "+scene
+assert 'func load_v5_generated_art(' in contents
+assert 'v5_art.get(art_name.trim_prefix("v5_generated_"), null)' in contents
+assert 'seven original offline generated realm backgrounds' in workflow
+print("PASS: seven original offline locally generated game panoramas")

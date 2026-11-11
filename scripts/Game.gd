@@ -145,6 +145,7 @@ var graphics_quality := 1
 var reduced_motion := false
 var realm_backdrops: Dictionary = {}
 var ember_art: Dictionary = {}
+var v5_art: Dictionary = {}
 var ember_boss_defeated := false
 var ember_braziers: Array = []
 var ember_puzzle_index := -1
@@ -198,6 +199,7 @@ func _ready() -> void:
 	create_world()
 	load_realm_backdrops()
 	load_ember_art()
+	load_v5_generated_art()
 	load_realm_stage("hub")
 	camera.position = Vector2(575, 316)
 	camera.make_current()
@@ -236,6 +238,16 @@ func draw_realm_backdrop(region: int, region_start: float, region_end: float, le
 	draw_texture_rect(texture, Rect2(region_start, -133.0, region_end - region_start, 680.0), false,
 		Color(1.0, 1.0, 1.0, 0.55 if graphics_quality == 2 else 0.42))
 
+
+func load_v5_generated_art() -> void:
+	# Each procedural panorama is created once at build time, then bundled into
+	# the offline APK. The render loop reuses these cached textures every frame.
+	for name in ["abyss", "tide_temple", "garden", "verdant_vault", "nexus", "nexus_core", "rootcrypt"]:
+		var image_path: String = "res://assets/v5_generated_%s.png" % name
+		if ResourceLoader.exists(image_path):
+			var resource: Resource = load(image_path)
+			if resource is Texture2D:
+				v5_art[name] = resource
 
 func load_ember_art() -> void:
 	var ids: Array = ["citadel", "dungeon", "cinder_warden", "fire_imp", "emberling",
@@ -2083,6 +2095,8 @@ func _draw() -> void:
 			var tex: Texture2D = null
 			if art_name.begins_with("v2_"):
 				tex = ember_art.get(art_name.trim_prefix("v2_"), null)
+			elif art_name.begins_with("v5_generated_"):
+				tex = v5_art.get(art_name.trim_prefix("v5_generated_"), null)
 			elif ResourceLoader.exists("res://assets/%s.png" % art_name):
 				tex = load("res://assets/%s.png" % art_name)
 			if tex != null and graphics_quality > 0:
