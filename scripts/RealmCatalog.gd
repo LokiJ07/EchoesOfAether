@@ -607,7 +607,19 @@ const QUESTS = [
 	{"id": "q53", "title": "Retrieve a drowned city's relic", "event": "secret:abyss", "target": 1, "region": "abyss", "coins": 180, "exp": 87},
 	{"id": "q54", "title": "Find an Everdawn bloom treasure", "event": "secret:garden", "target": 1, "region": "garden", "coins": 195, "exp": 94},
 	{"id": "q55", "title": "Recover a lost Aether star fragment", "event": "secret:nexus", "target": 1, "region": "nexus", "coins": 210, "exp": 101},
-	{"id": "q56", "title": "Open the secret forge cache", "event": "secret:cinder", "target": 1, "region": "cinder", "coins": 225, "exp": 108}
+	{"id": "q56", "title": "Open the secret forge cache", "event": "secret:cinder", "target": 1, "region": "cinder", "coins": 225, "exp": 108},
+	{"id": "q57", "title": "Leap to the Ranger's Skyshard", "event": "skyshard:forest", "target": 1, "region": "forest", "coins": 110, "exp": 65},
+	{"id": "q58", "title": "Retrieve the Echo Observatory Skyshard", "event": "skyshard:ruins", "target": 1, "region": "ruins", "coins": 122, "exp": 71},
+	{"id": "q59", "title": "Scale the Prism Ledges", "event": "skyshard:crystal", "target": 1, "region": "crystal", "coins": 134, "exp": 77},
+	{"id": "q60", "title": "Ascend the Floating Ledges", "event": "skyshard:sky", "target": 1, "region": "sky", "coins": 146, "exp": 83},
+	{"id": "q61", "title": "Rise Above the Cursed Bog", "event": "skyshard:marsh", "target": 1, "region": "marsh", "coins": 158, "exp": 89},
+	{"id": "q62", "title": "Climb the Emberfall Watchtower", "event": "skyshard:ember", "target": 1, "region": "ember", "coins": 170, "exp": 95},
+	{"id": "q63", "title": "Reach the Drowned City's Beacon", "event": "skyshard:abyss", "target": 1, "region": "abyss", "coins": 182, "exp": 101},
+	{"id": "q64", "title": "Ascend the Everdawn Canopy", "event": "skyshard:garden", "target": 1, "region": "garden", "coins": 194, "exp": 107},
+	{"id": "q65", "title": "Recover the Star-Crown Skyshard", "event": "skyshard:nexus", "target": 1, "region": "nexus", "coins": 206, "exp": 113},
+	{"id": "q66", "title": "Traverse the Rootbound Upper Gallery", "event": "skyshard:rootcrypt", "target": 1, "region": "rootcrypt", "coins": 218, "exp": 119},
+	{"id": "q67", "title": "Reach the Tidal Temple's High Altar", "event": "skyshard:tide_temple", "target": 1, "region": "tide_temple", "coins": 230, "exp": 125},
+	{"id": "q68", "title": "Climb the Heart of the Core", "event": "skyshard:nexus_core", "target": 1, "region": "nexus_core", "coins": 242, "exp": 131}
 ]
 
 static func region(id: String) -> Dictionary:

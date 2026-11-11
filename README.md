@@ -1,3 +1,17 @@
+# Echoes of Aether v7 — Field Review & Deep Traversal
+
+This major update responds to **actual live Godot framebuffer captures** of v6: Moonhaven and Whisperwood rendered, but Abyssal Depths was incorrectly showing a blank/dark area after physics, and puzzle artwork/control labels were small.
+
+**Critical fix:** Legacy map-rectangle quest locks now operate only inside their original regions. Previously, entering a dungeon above x=15,800 could snap the hero back into the old Sunken Ruins even when the portal and all automated save checks passed. v7 tests simulate real physics after entering early and late portal maps to ensure the hero remains in the correct scene.
+
+**Exploration:** 26 non-hub regions gain actual climbable 3-tier routes, designed around the default jump height and a continuous optional ground path. Each has a one-time floating **Skyshard** that grants coins and a relic, with 12 additional realm and dungeon quests (**68 quests total**). Progress is stored in the same upgrade-safe Android save file; HUD customization and controls remain untouched.
+
+**Creature identities:** Twelve previously reused sprites (including all eight dungeon guardian types and the Tide/Garden roaming enemies) now have separate locally generated transparent creature silhouettes, altered palettes, and lore-themed features. This uses the existing original art as input; it is **derivative original processing, not new Higgsfield generations**. All PNGs are actually imported into the offline APK. Bosses now cast six different attacks (fan, aimed, wave, rush, ceilingfall, crossfire); their first four remain backward-compatible with existing tests.
+
+**Visual QA:** GitHub Actions now renders and uploads five real Godot screenshots in a separate artifact so changes can be inspected visually, as well as checking source and gameplay. A successful CI run is not a substitute for physical touchscreen testing. Optional high-resolution JPG concept art still requires importing the separately provided pack.
+
+---
+
 # Echoes of Aether v6 — DEEP REALMS: Eight Annex Trials
 
 **Latest gameplay addition:** 52 discoverable secret-cache positions across the 26 non-hub portal scenes, with ten extra exploration quests (56 total). Opening a cache grants coins and contributes toward relic rewards, and its collected state persists in the save file. The HUD interaction button now recognizes nearby secrets. All original dungeon puzzle rewards remain optional.

@@ -149,10 +149,13 @@ var realm_backdrops: Dictionary = {}
 var ember_art: Dictionary = {}
 var v5_art: Dictionary = {}
 var v6_art: Dictionary = {}
+var v7_mob_art: Dictionary = {}
 # Optional HD art bundle; never required for game logic, saves or CI.
 var premium_art: Dictionary = {}
 # Two discoverable secrets per region provide real exploration rewards.
 var secret_caches: Array = []
+# Hidden vertical routes now reward platform skill in every non-hub stage.
+var skyshards_collected: Array = []
 var trial_completed: Array = []
 var trial_puzzle: Dictionary = {}
 var trial_puzzle_id := ""
@@ -211,6 +214,7 @@ func _ready() -> void:
 	create_world()
 	load_realm_backdrops()
 	load_ember_art()
+	load_v7_mob_art()
 	load_v5_generated_art()
 	load_v6_generated_art()
 	load_premium_art()
@@ -333,6 +337,18 @@ func load_v6_generated_art() -> void:
 func v6_art_for(id: String) -> Texture2D:
 	return v6_art.get(id, null) as Texture2D
 
+func load_v7_mob_art() -> void:
+	# Every later-realm mob/guardian now receives its own offline generated
+	# silhouette and palette, rather than copying an unrelated old sprite.
+	for id in ["tide_stalker", "coral_wisp", "thorn_knight", "petal_moth",
+		"root_colossus", "mirror_keeper", "gale_wyrm", "mire_reaver",
+		"echo_archon", "abyss_leviathan", "thornheart", "nexus_echo"]:
+		var path: String = "res://assets/v7_%s.png" % id
+		if ResourceLoader.exists(path):
+			var resource: Resource = load(path)
+			if resource is Texture2D:
+				v7_mob_art[id] = resource
+
 func load_ember_art() -> void:
 	var ids: Array = ["citadel", "dungeon", "cinder_warden", "fire_imp", "emberling",
 		"slime", "moth", "beetle", "sentinel", "wisp", "crystal_bug", "crystal_wisp", "sky_wisp",
@@ -418,6 +434,7 @@ func create_world() -> void:
 	poison_pools.append_array([Rect2(17320, 478, 105, 22), Rect2(18440, 478, 115, 22),
 		Rect2(20960, 478, 96, 22)])
 	build_v5_map_terrain()
+	build_v7_vertical_routes()
 	spawn_enemies()
 
 func build_v5_map_terrain() -> void:
@@ -436,6 +453,38 @@ func build_v5_map_terrain() -> void:
 				traps.append(Rect2(x + 235.0, 494.0, 88.0, 130.0))
 			if i > 0 and i % 6 == 4 and region["id"] in ["abyss", "tide_temple", "mire_catacombs"]:
 				poison_pools.append(Rect2(x + 165.0, 478.0, 110.0, 22.0))
+
+func build_v7_vertical_routes() -> void:
+	# Every independent map gets a reachable optional three-level platform route.
+	# Each rise is < 90 world units; the base hero jumps ~121 units without
+	# spending relics, so the routes never depend on an unlockable double jump.
+	for info in REALM_CATALOG.REGIONS:
+		if str(info["kind"]) == "hub": continue
+		var first_x: float = float(info["start"]) + 410.0
+		if first_x + 1030.0 > float(info["end"]) - 190.0: continue
+		platforms.append(Rect2(first_x, 423.0, 195.0, 18.0))
+		platforms.append(Rect2(first_x + 192.0, 348.0, 195.0, 18.0))
+		platforms.append(Rect2(first_x + 388.0, 278.0, 218.0, 18.0))
+		platforms.append(Rect2(first_x + 585.0, 351.0, 190.0, 18.0))
+
+func skyshard_position(region: Dictionary) -> Vector2:
+	if region.is_empty() or str(region.get("kind","")) == "hub":
+		return Vector2(-10000.0, -10000.0)
+	return Vector2(float(region["start"]) + 900.0, 252.0)
+
+func collect_skyshard_if_close() -> bool:
+	if state != "playing" or skyshards_collected.has(current_realm_id): return false
+	var spot: Vector2 = skyshard_position(current_realm())
+	if player_pos.distance_to(spot) > 83.0: return false
+	skyshards_collected.append(current_realm_id)
+	coins += 80
+	relic_shards += 1
+	record_quest_event("skyshard:" + current_realm_id)
+	spawn_dust(spot, Color("b6fcf6"), 18)
+	show_message("SKYSHARD CLAIMED! +80 COINS, +1 RELIC", 3.2)
+	play_sfx("loot")
+	save_game()
+	return true
 
 func spawn_enemies() -> void:
 	enemies.clear()
@@ -634,28 +683,22 @@ func update_player(dt: float) -> void:
 		velocity.x = 0.0
 		if portal_cooldown <= 0.0:
 			show_message("PORTAL TRAVEL: Use the glowing gateway, not the map edge.", 2.3)
-	if quest_stage < 2 and player_pos.x > 6195.0:
-		player_pos.x = 6195.0
-		velocity.x = 0.0
-		show_message("Aether Gate sealed. Bring 3 seeds to Mira!", 2.5)
-	elif quest_stage >= 2 and not defeated_boss and player_pos.x > 7380.0:
-		boss_alert = "WARDEN OF THE FADING STAR"
-	if not defeated_boss and player_pos.x > 8340.0:
+	# Legacy quest barriers only apply inside their original scenes.
+	# Applying absolute x-coordinate locks in a portal world teleported players
+	# OUT of every later dungeon before they could take a single step.
+	if current_realm_id == "ruins":
+		if quest_stage < 2 and player_pos.x > 6195.0:
+			player_pos.x = 6195.0
+			velocity.x = 0.0
+			show_message("Aether Gate sealed. Bring 3 seeds to Mira!", 2.5)
+		elif quest_stage >= 2 and not defeated_boss and player_pos.x > 7380.0:
+			boss_alert = "WARDEN OF THE FADING STAR"
+	elif current_realm_id == "crystal" and not defeated_boss and player_pos.x > 8340.0:
+		# Defensive compatibility for old test/save positions; normal locked
+		# portals are rejected by enter_realm() before this.
 		player_pos.x = 8340.0
 		velocity.x = 0.0
 		show_message("Defeat the Star Warden to enter Crystal Hollow!", 2.1)
-	elif not world_bosses_cleared[0] and player_pos.x > 10800.0:
-		player_pos.x = 10800.0
-		velocity.x = 0.0
-		show_message("Crystal Titan blocks the Celestial Highlands!", 2.1)
-	elif not world_bosses_cleared[1] and player_pos.x > 12900.0:
-		player_pos.x = 12900.0
-		velocity.x = 0.0
-		show_message("Sky Herald blocks the Shadowfen Marsh!", 2.1)
-	elif not expansion_completed and player_pos.x > EMBER_START - 80.0:
-		player_pos.x = EMBER_START - 80.0
-		velocity.x = 0.0
-		show_message("Shattered Realms unlocks after restoring Shadowfen.", 2.6)
 	on_ground = false
 	var floor := ground_y(player_pos.x)
 	if floor > 0.0 and player_pos.y >= floor and velocity.y >= 0.0:
@@ -678,6 +721,9 @@ func update_player(dt: float) -> void:
 			velocity.y = 0.0
 			on_ground = true
 			jump_count = 0
+	# Reach the high platforms for a real optional collectible; quests never
+	# force an aerial route to reach the dungeon's main storyline.
+	collect_skyshard_if_close()
 	# Poisonous shallows hurt only when the hero stands in their glow.
 	for pool in poison_pools:
 		if pool.has_point(player_pos + Vector2(0, -5)):
@@ -1103,7 +1149,7 @@ func boss_attack(e: Dictionary) -> void:
 	# Four genuinely distinct readable attack patterns, rotated each cast. Each
 	# boss has the same fair windup but different visual elements and speed.
 	var advanced: bool = int(e["phase"]) >= 2
-	var attack: int = int(e.get("pattern", 0)) % 4
+	var attack: int = int(e.get("pattern", 0)) % 6
 	e["pattern"] = attack + 1
 	e["cooldown"] = (2.0 if advanced else 2.7) + float(attack) * 0.21
 	e["attack_anim"] = 0.6
@@ -1134,6 +1180,20 @@ func boss_attack(e: Dictionary) -> void:
 			var r: Dictionary = REALM_CATALOG.region(region)
 			e["x"] = clampf(destination, float(r["start"]) + 150.0, float(r["end"]) - 150.0)
 			bolts.append({"pos": origin, "vel": Vector2(toward * 255.0, -145.0), "ttl": 2.7, "kind": shot_kind, "damage": 11.0})
+		4:
+			# Ceilingfall: three vertical shards leave clear horizontal lanes
+			# between them, rewarding movement rather than repeated dash timing.
+			for lane in [-1, 0, 1]:
+				var place: float = player_pos.x + float(lane) * 126.0
+				var bounds: Dictionary = REALM_CATALOG.region(current_realm_id)
+				place = clampf(place, float(bounds["start"]) + 95.0, float(bounds["end"]) - 95.0)
+				bolts.append({"pos": Vector2(place, FLOOR_Y - 252.0), "vel": Vector2(0, 270.0 if advanced else 225.0), "ttl": 1.8, "kind": shot_kind, "damage": 11.0})
+		5:
+			# Scissor crossfire: opposing high and low arcs, jump or duck under.
+			for lane in [-1, 1]:
+				bolts.append({"pos": origin + Vector2(0, float(lane) * 33.0),
+					"vel": Vector2(toward * (310.0 if advanced else 260.0), float(lane) * 124.0),
+					"ttl": 2.7, "kind": shot_kind, "damage": 12.0})
 	spawn_dust(origin, tint, 12 if not advanced else 20)
 
 func shoot_enemy_bolt(e: Dictionary, speed: float, damage: float) -> void:
@@ -1894,6 +1954,7 @@ func start_new_game() -> void:
 	current_realm_id = "hub"
 	trial_completed.clear()
 	secret_caches.clear()
+	skyshards_collected.clear()
 	trial_puzzle.clear()
 	trial_puzzle_id = ""
 	quest_counts.clear()
@@ -1970,7 +2031,7 @@ func save_game() -> void:
 		"ember_hunts": ember_hunt_counts, "ember_hunt_claimed": ember_hunt_claimed,
 		"active_realm": current_realm_id, "quest_counts": quest_counts,
 		"trial_completed": trial_completed,
-		"secret_caches": secret_caches,
+		"secret_caches": secret_caches, "skyshards_collected": skyshards_collected,
 		"tracked_quest_id": tracked_quest_id,
 		"quest_claimed": quest_claimed, "discovered_realms": discovered_realm_ids,
 		"dungeon_clears": dungeon_clears, "story_seen": story_seen,
@@ -2092,6 +2153,13 @@ func load_game() -> bool:
 	if not quest_claimed is Array: quest_claimed = []
 	trial_completed.clear()
 	secret_caches.clear()
+	skyshards_collected.clear()
+	var restored_shards = data.get("skyshards_collected", [])
+	if restored_shards is Array:
+		for entry in restored_shards:
+			var name: String = str(entry)
+			if not REALM_CATALOG.region(name).is_empty() and not skyshards_collected.has(name):
+				skyshards_collected.append(name)
 	var seen_secrets = data.get("secret_caches", [])
 	if seen_secrets is Array:
 		for entry in seen_secrets:
@@ -2419,6 +2487,18 @@ func _draw() -> void:
 		draw_label(Vector2(310, 295), "MIRA'S HALL", 16, Color("f3dba1"))
 		draw_label(Vector2(886, 295), "STARLIT EMPORIUM", 15, Color("f3dba1"))
 		draw_label(Vector2(1330, 295), "WAYFARER'S REST", 15, Color("f3dba1"))
+	# Distinct raised traversal goals give every realm a second exploration
+	# layer: physically land on the upper walkway to earn this Aether shard.
+	if not skyshards_collected.has(current_realm_id):
+		var shard_pos: Vector2 = skyshard_position(current_realm())
+		if shard_pos.x >= left - 90.0 and shard_pos.x <= right + 90.0:
+			var shine: float = 0.6 + 0.4 * sin(elapsed * 2.3)
+			draw_circle(shard_pos, 35.0, Color(0.35, 0.92, 0.96, 0.10 + shine * 0.13))
+			draw_colored_polygon(PackedVector2Array([
+				shard_pos + Vector2(0, -30), shard_pos + Vector2(19, 0),
+				shard_pos + Vector2(0, 29), shard_pos + Vector2(-19, 0)]), Color("8aeee8"))
+			draw_line(shard_pos + Vector2(-4, -18), shard_pos + Vector2(-4, 18), Color("e5ffff"), 4)
+			draw_label(shard_pos + Vector2(-51, -55), "SKYSHARD", 14, Color("ddfff8"))
 	# Secret exploration caches have world-space hitboxes and saved rewards.
 	for entry in secret_cache_positions(current_realm()):
 		var px: float = float(entry["x"])
@@ -2502,7 +2582,8 @@ func _draw() -> void:
 			"thornheart": "marsh_guardian", "nexus_echo": "boss"}
 		if reused_sprites.has(sprite_id):
 			sprite_id = str(reused_sprites[sprite_id])
-		var texture: Texture2D = ember_art.get(sprite_id, null)
+		var texture: Texture2D = v7_mob_art.get(str(e["type"]), null)
+		if texture == null: texture = ember_art.get(sprite_id, null)
 		if texture == null:
 			match e["type"]:
 				"slime", "bog_slime", "fire_imp": texture = SLIME

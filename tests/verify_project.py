@@ -158,3 +158,21 @@ assert '"secret_caches": secret_caches' in contents
 assert '"id": "q56"' in catalog and '"event": "secret:forest"' in catalog
 assert 'PASS: 52 discoverable realm secrets' in workflow
 print("PASS: optional premium art loader, 52 treasure sites and ten exploration RPG quests")
+
+# v7 live review: no absolute legacy region locks may be applied to separate
+# portal dungeons. Actual GDScript gameplay tests will validate movement too.
+for token in ["func load_v7_mob_art(", "func build_v7_vertical_routes(",
+              "func skyshard_position(", "func collect_skyshard_if_close(",
+              '"skyshards_collected": skyshards_collected']:
+    assert token in contents, "Missing v7 core system: "+token
+assert 'current_realm_id == "ruins"' in contents
+assert 'current_realm_id == "crystal" and not defeated_boss' in contents
+for kind in ["tide_stalker", "coral_wisp", "thorn_knight", "petal_moth",
+             "root_colossus", "mirror_keeper", "gale_wyrm", "mire_reaver",
+             "echo_archon", "abyss_leviathan", "thornheart", "nexus_echo"]:
+    assert (r/"assets"/("v7_"+kind+".png")).is_file(), "Missing unique v7 enemy sprite: "+kind
+assert '"id": "q68"' in catalog and '"event": "skyshard:forest"' in catalog
+assert (r/"tools/build_v7_mobs.py").is_file()
+assert (r/"tests/v7_field_review.gd").is_file()
+assert "build_v7_mobs.py" in workflow and "tests/v7_field_review.gd" in workflow
+print("PASS: v7 isolated dungeon fixes, raised paths, 12 new mobs and 68 quests")

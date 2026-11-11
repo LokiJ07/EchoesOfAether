@@ -104,6 +104,25 @@ jobs:
             git push origin HEAD:main
           fi
 
+      - name: Generate twelve distinctive v7 mob and boss silhouettes (offline)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build_v7_mobs.py
+
+      - name: Preserve original v7 mob and boss artwork in repository
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        shell: bash
+        run: |
+          git add assets/v7_*.png
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "assets(v7): twelve distinct realm creatures and guardian designs"
+            git push origin HEAD:main
+          fi
+
       - name: Set up Java 17 before Android SDK
         uses: actions/setup-java@v4
         with:
@@ -159,7 +178,7 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_VERSION_CODE=$((GITHUB_RUN_NUMBER + 1))
-          BUILD_VERSION_NAME="6.0.${GITHUB_RUN_NUMBER}"
+          BUILD_VERSION_NAME="7.0.${GITHUB_RUN_NUMBER}"
           export BUILD_VERSION_CODE BUILD_VERSION_NAME
           python3 - <<'PY'
           import os
@@ -301,6 +320,18 @@ jobs:
           grep -Fq 'PASS: 52 discoverable realm secrets, ten exploration quests and permanent rewards' /tmp/godot-v6.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V6 FAILED)' /tmp/godot-v6.log; then exit 1; fi
 
+      - name: Validate v7 field fixes, real vertical exploration and six combat patterns
+        shell: bash
+        run: |
+          set -eo pipefail
+          timeout --signal=TERM 120s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v7_field_review.gd 2>&1 | tee /tmp/godot-v7.log
+          grep -Fq 'PASS: late-stage portal maps remain playable after actual physics frames' /tmp/godot-v7.log
+          grep -Fq 'PASS: 12 new differentiated high-contrast enemy and boss sprites actually imported' /tmp/godot-v7.log
+          grep -Fq 'PASS: 26 nonblocking 3-tier vertical routes and accessible platforming collectibles' /tmp/godot-v7.log
+          grep -Fq 'PASS: physical skyshard pickup, one-time rewards, 12 RPG quests and saved progress' /tmp/godot-v7.log
+          grep -Fq 'PASS: six distinct dodgeable boss attack patterns' /tmp/godot-v7.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V7 FIELD REVIEW FAILED)' /tmp/godot-v7.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -355,4 +386,5 @@ jobs:
             /tmp/godot-v2.log
             /tmp/godot-v5.log
             /tmp/godot-v6.log
+            /tmp/godot-v7.log
           if-no-files-found: ignore
