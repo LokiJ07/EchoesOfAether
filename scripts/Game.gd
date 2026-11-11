@@ -1566,6 +1566,8 @@ func press_trial_cell(cell: int) -> bool:
 	if str(trial_puzzle.get("kind", "")) == "melody" and cell >= 0 and cell < 4:
 		play_chime(cell)
 	var changed: bool = PUZZLE_ENGINE.press(trial_puzzle, cell)
+	if changed or str(trial_puzzle.get("kind", "")) == "melody":
+		trial_hint_text = "" # Allow player feedback instead of a persistent opening banner.
 	if changed and bool(trial_puzzle.get("solved", false)):
 		finish_trial_puzzle()
 	return changed
