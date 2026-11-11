@@ -332,6 +332,22 @@ jobs:
           grep -Fq 'PASS: six distinct dodgeable boss attack patterns' /tmp/godot-v7.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V7 FIELD REVIEW FAILED)' /tmp/godot-v7.log; then exit 1; fi
 
+      - name: Verify reusable Aether puzzle mechanics
+        shell: bash
+        run: |
+          set -eo pipefail
+          timeout --signal=TERM 120s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/test_aether_mechanics.gd 2>&1 | tee /tmp/godot-aether-mechanics.log
+          grep -Fq 'AETHER MECHANICS TESTS PASSED' /tmp/godot-aether-mechanics.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|Assertion failed)' /tmp/godot-aether-mechanics.log; then exit 1; fi
+
+      - name: Verify v8 optional chime and counterweight dungeon encounters
+        shell: bash
+        run: |
+          set -eo pipefail
+          timeout --signal=TERM 120s /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v8_optional_puzzles.gd 2>&1 | tee /tmp/godot-v8.log
+          grep -Fq 'PASS: optional chime and counterweight altars, mobile interaction, one-time rewards and save migration' /tmp/godot-v8.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V8 BONUS FAILED)' /tmp/godot-v8.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -387,4 +403,6 @@ jobs:
             /tmp/godot-v5.log
             /tmp/godot-v6.log
             /tmp/godot-v7.log
+            /tmp/godot-aether-mechanics.log
+            /tmp/godot-v8.log
           if-no-files-found: ignore
