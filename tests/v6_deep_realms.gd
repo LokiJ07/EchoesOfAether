@@ -103,8 +103,11 @@ func run_tests() -> void:
 	# Memory trial has unique sequences; wrong choice resets only that sequence.
 	if not check(open_trial(game, "bog_lanterns"), "Swamp memory puzzle opens"): return
 	var first_colour: int = int(game.trial_puzzle["sequence"][0])
+	var hp_before_memory: float = game.hp
 	game.press_trial_cell((first_colour+1)%4)
-	if not check(game.trial_puzzle["progress"] == 0 and game.hp == hp0, "Wrong memory answer has no HP penalty"): return
+	# Previous dungeon rewards can increase current HP; compare against the
+	# immediately preceding state, not the value from the first mural room.
+	if not check(game.trial_puzzle["progress"] == 0 and game.hp == hp_before_memory, "Wrong memory answer has no HP penalty"): return
 	game.trial_hint()
 	if not check(game.trial_hint_text.contains("NEXT GLYPH"), "Hint displays next memory rune"): return
 	var sequence: Array = game.trial_puzzle["sequence"].duplicate()
