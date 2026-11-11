@@ -1,3 +1,26 @@
+# Echoes of Aether v6 — DEEP REALMS: Eight Annex Trials
+
+The new content expands the existing v5 portal RPG to **27 independent PackedScene destinations** and **46 saved quests** (previously 19 and 30). Eight original branch rooms are accessible from mid-dungeon secret portals: Rootbound Mural Gallery, Prism Circuit Annex, Wind Observatory, Lantern Chamber, Living Forge Engine, Tidal Control Vault, Seedweave Arbor and Star Memory Chamber.
+
+## Truly different interactive puzzles
+
+1. **Sliding mural assembly** — slide eight real picture fragments around the one empty square, rearranging an actual portion of the room background to reconstruct it. Every initial board is solvable.
+2. **Rotating energy circuits** — turn pipe pieces until reciprocal connections carry the beam from the left input through an actual route to the right exit. A rotated tile without matching neighbors cannot complete the circuit.
+3. **Three-dial number logic** — solve three simultaneous pair-sum constraints by adjusting individual valves.
+4. **Watch-and-repeat memory** — study an original 5–6-glyph sequence, then repeat it. Wrong entries reset only the memory sequence; clues can reveal the next glyph.
+
+Every chamber is **optional**, entered through its own portal; there are no forced timers, damage penalties, mandatory solve locks or lost resources. Buttons provide Hint, Restart and Exit; puzzles pause live hazards and combat. Solving once grants a relic, coin rewards and quest completion saved in the original `user://aether_save.json`. Already-completed chambers cannot be exploited for unlimited coins.
+
+## Expanded maps and dungeon encounters
+
+All eight chambers have their own local generated illustrated backgrounds, physically isolated by camera/portal transitions, plus real terrain platforms, original room props and enemy packs. The existing old saves, dungeon bosses, mobile controls, music settings and Android install-over identity remain intact.
+
+`tools/build_v6_art.py` draws original temple and chamber art offline using Pillow. Each distinct image is packaged as `assets/v6_generated_*.png`. The earlier premium high-res images generated in ChatGPT are available in a separate concept-art package, **not automatically used as these PNG textures** because the connected GitHub adapter cannot upload their local image bytes. These generated backgrounds are production placeholders until premium art is transferred into the repository.
+
+The v6 Godot tests exercise the entire portal/puzzle/reward/save experience and build the Android APK only after v0.1–v5 regressions are green. Physical-phone touch/layout and playtime must still be verified.
+
+---
+
 # ECHOES OF AETHER — v5.0 PORTAL RPG MILESTONE
 
 ## v5 original-art fallback (no Higgsfield credits required)

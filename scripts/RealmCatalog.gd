@@ -229,7 +229,15 @@ const REGIONS = [
 		"dungeon": "",
 		"sky": "#201e40",
 		"art": "v5_generated_nexus_core"
-	}
+	},
+	{"id": "root_gallery", "name": "ROOTBOUND MURAL GALLERY", "start": 62500, "end": 65100, "arrival": 62730, "kind": "trial", "parent": "rootcrypt", "dungeon": "", "sky": "#173d37", "art": "v6_generated_rootgallery"},
+	{"id": "prism_annex", "name": "PRISM CIRCUIT ANNEX", "start": 65100, "end": 67700, "arrival": 65330, "kind": "trial", "parent": "mirror_vault", "dungeon": "", "sky": "#174259", "art": "v6_generated_prismannex"},
+	{"id": "wind_observatory", "name": "WIND OBSERVATORY", "start": 67700, "end": 70300, "arrival": 67930, "kind": "trial", "parent": "gale_spire", "dungeon": "", "sky": "#335477", "art": "v6_generated_windobservatory"},
+	{"id": "bog_lanterns", "name": "LANTERN CHAMBER", "start": 70300, "end": 72900, "arrival": 70530, "kind": "trial", "parent": "mire_catacombs", "dungeon": "", "sky": "#203e38", "art": "v6_generated_boglanterns"},
+	{"id": "forge_engine", "name": "LIVING FORGE ENGINE", "start": 72900, "end": 75500, "arrival": 73130, "kind": "trial", "parent": "cinder", "dungeon": "", "sky": "#5c332e", "art": "v6_generated_forgeengine"},
+	{"id": "tide_control", "name": "TIDAL CONTROL VAULT", "start": 75500, "end": 78100, "arrival": 75730, "kind": "trial", "parent": "tide_temple", "dungeon": "", "sky": "#114764", "art": "v6_generated_tidecontrol"},
+	{"id": "seed_arbor", "name": "SEEDWEAVE ARBOR", "start": 78100, "end": 80700, "arrival": 78330, "kind": "trial", "parent": "verdant_vault", "dungeon": "", "sky": "#2c6445", "art": "v6_generated_seedarbor"},
+	{"id": "nexus_memory", "name": "STAR MEMORY CHAMBER", "start": 80700, "end": 83300, "arrival": 80930, "kind": "trial", "parent": "nexus_core", "dungeon": "", "sky": "#38306b", "art": "v6_generated_nexusmemory"}
 ]
 const STORIES = {
 	"hub": [
@@ -273,7 +281,25 @@ const STORIES = {
 	"nexus": [
 		"MIRA: Every restored realm has brought us to the Aether Nexus.",
 		"MIRA: Enter the Heart of the Core. The truth waits beyond the final portal."
-	]
+	],
+	"root_gallery": ["ELIAN: The ranger mural was shattered into eight fragments.", "ELIAN: The empty ninth space lets you shift each piece into its rightful place."],
+	"prism_annex": ["VERA: Reflected light must cross the crystal pipes to the exit.", "VERA: Turn each prism to join the shining path."],
+	"wind_observatory": ["AURI: Three dials govern the observatory's ancient winds.", "AURI: Pairwise sums reveal the true numbers. The mechanism has no timer."],
+	"bog_lanterns": ["TESS: The witchlights remember a forgotten constellation.", "TESS: Watch the glyphs and repeat the memory sequence. No harm comes from mistakes."],
+	"forge_engine": ["BRAN: The Living Forge needs its fire conduits reconnected.", "BRAN: Rotate the molten pathways and restore the power."],
+	"tide_control": ["NERA: Balance the three tidal valves to free the ancient reservoir.", "NERA: Every dial changes the pressure of two channels. The equations are your guide."],
+	"seed_arbor": ["EVE: The Seedweave image must be rebuilt to bloom.", "EVE: Slide the ancient mosaic pieces into their correct arrangement."],
+	"nexus_memory": ["MIRA: The heart recognizes memories, not brute force.", "MIRA: Study its changing glyphs and replay them to seal the rift."]
+}
+const TRIALS = {
+	"root_gallery": {"name": "ROOTBOUND MURAL GALLERY", "parent": "rootcrypt", "type": "mosaic", "theme": "forest", "art": "v6_generated_rootgallery", "reward": 105},
+	"prism_annex": {"name": "PRISM CIRCUIT ANNEX", "parent": "mirror_vault", "type": "circuit", "theme": "crystal", "art": "v6_generated_prismannex", "reward": 105},
+	"wind_observatory": {"name": "WIND OBSERVATORY", "parent": "gale_spire", "type": "logic", "theme": "sky", "art": "v6_generated_windobservatory", "reward": 105},
+	"bog_lanterns": {"name": "LANTERN CHAMBER", "parent": "mire_catacombs", "type": "memory", "theme": "marsh", "art": "v6_generated_boglanterns", "reward": 105},
+	"forge_engine": {"name": "LIVING FORGE ENGINE", "parent": "cinder", "type": "circuit", "theme": "ember", "art": "v6_generated_forgeengine", "reward": 160},
+	"tide_control": {"name": "TIDAL CONTROL VAULT", "parent": "tide_temple", "type": "logic", "theme": "abyss", "art": "v6_generated_tidecontrol", "reward": 160},
+	"seed_arbor": {"name": "SEEDWEAVE ARBOR", "parent": "verdant_vault", "type": "mosaic", "theme": "garden", "art": "v6_generated_seedarbor", "reward": 160},
+	"nexus_memory": {"name": "STAR MEMORY CHAMBER", "parent": "nexus_core", "type": "memory", "theme": "nexus", "art": "v6_generated_nexusmemory", "reward": 160}
 }
 const DUNGEON_BOSSES = {
 	"rootcrypt": "root_colossus",
@@ -555,7 +581,23 @@ const QUESTS = [
 		"region": "garden",
 		"coins": 65,
 		"exp": 45
-	}
+	},
+	{"id": "q31", "title": "Discover ROOTBOUND MURAL GALLERY", "event": "visit:root_gallery", "target": 1, "region": "rootcrypt", "coins": 85, "exp": 45},
+	{"id": "q32", "title": "Solve ROOTBOUND MURAL GALLERY puzzle", "event": "trial:root_gallery", "target": 1, "region": "rootcrypt", "coins": 145, "exp": 75},
+	{"id": "q33", "title": "Discover PRISM CIRCUIT ANNEX", "event": "visit:prism_annex", "target": 1, "region": "mirror_vault", "coins": 95, "exp": 45},
+	{"id": "q34", "title": "Solve PRISM CIRCUIT ANNEX puzzle", "event": "trial:prism_annex", "target": 1, "region": "mirror_vault", "coins": 160, "exp": 75},
+	{"id": "q35", "title": "Discover WIND OBSERVATORY", "event": "visit:wind_observatory", "target": 1, "region": "gale_spire", "coins": 105, "exp": 45},
+	{"id": "q36", "title": "Solve WIND OBSERVATORY puzzle", "event": "trial:wind_observatory", "target": 1, "region": "gale_spire", "coins": 175, "exp": 75},
+	{"id": "q37", "title": "Discover LANTERN CHAMBER", "event": "visit:bog_lanterns", "target": 1, "region": "mire_catacombs", "coins": 115, "exp": 45},
+	{"id": "q38", "title": "Solve LANTERN CHAMBER puzzle", "event": "trial:bog_lanterns", "target": 1, "region": "mire_catacombs", "coins": 190, "exp": 75},
+	{"id": "q39", "title": "Discover LIVING FORGE ENGINE", "event": "visit:forge_engine", "target": 1, "region": "cinder", "coins": 125, "exp": 45},
+	{"id": "q40", "title": "Solve LIVING FORGE ENGINE puzzle", "event": "trial:forge_engine", "target": 1, "region": "cinder", "coins": 205, "exp": 75},
+	{"id": "q41", "title": "Discover TIDAL CONTROL VAULT", "event": "visit:tide_control", "target": 1, "region": "tide_temple", "coins": 135, "exp": 45},
+	{"id": "q42", "title": "Solve TIDAL CONTROL VAULT puzzle", "event": "trial:tide_control", "target": 1, "region": "tide_temple", "coins": 220, "exp": 75},
+	{"id": "q43", "title": "Discover SEEDWEAVE ARBOR", "event": "visit:seed_arbor", "target": 1, "region": "verdant_vault", "coins": 145, "exp": 45},
+	{"id": "q44", "title": "Solve SEEDWEAVE ARBOR puzzle", "event": "trial:seed_arbor", "target": 1, "region": "verdant_vault", "coins": 235, "exp": 75},
+	{"id": "q45", "title": "Discover STAR MEMORY CHAMBER", "event": "visit:nexus_memory", "target": 1, "region": "nexus_core", "coins": 155, "exp": 45},
+	{"id": "q46", "title": "Solve STAR MEMORY CHAMBER puzzle", "event": "trial:nexus_memory", "target": 1, "region": "nexus_core", "coins": 250, "exp": 75}
 ]
 
 static func region(id: String) -> Dictionary:

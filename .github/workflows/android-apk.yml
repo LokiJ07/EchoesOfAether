@@ -85,6 +85,25 @@ jobs:
             git push origin HEAD:main
           fi
 
+      - name: Render eight unique illustrated dungeon annex backgrounds (offline)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build_v6_art.py
+
+      - name: Preserve new v6 room artwork in game repository
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        shell: bash
+        run: |
+          git add assets/v6_generated_*.png
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "assets: import unique v6 illustrated dungeon annexes"
+            git push origin HEAD:main
+          fi
+
       - name: Set up Java 17 before Android SDK
         uses: actions/setup-java@v4
         with:
@@ -140,7 +159,7 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_VERSION_CODE=$((GITHUB_RUN_NUMBER + 1))
-          BUILD_VERSION_NAME="5.0.${GITHUB_RUN_NUMBER}"
+          BUILD_VERSION_NAME="6.0.${GITHUB_RUN_NUMBER}"
           export BUILD_VERSION_CODE BUILD_VERSION_NAME
           python3 - <<'PY'
           import os
@@ -234,6 +253,17 @@ jobs:
           grep -Fq 'PASS: safe v2 save migration, fixed signing identity and unchanged custom control settings' /tmp/godot-v5.log
           if grep -Eq '(SCRIPT ERROR|Parse Error|V5 FAILED)' /tmp/godot-v5.log; then exit 1; fi
 
+      - name: Verify v6 deep dungeon annexes, four playable puzzle types and 46 quests
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://tests/v6_deep_realms.gd 2>&1 | tee /tmp/godot-v6.log
+          grep -Fq 'PASS: eight portal dungeon annexes, imported unique backgrounds, and expanded 46-quest journal' /tmp/godot-v6.log
+          grep -Fq 'PASS: sliding mural assembly, legal moves, optional exits, progression rewards and quest events' /tmp/godot-v6.log
+          grep -Fq 'PASS: pipe-connectivity, logic equations, memory sequence and nonpunishing hints' /tmp/godot-v6.log
+          grep -Fq 'PASS: all eight puzzle paths, save compatibility, and completed-chamber persistence' /tmp/godot-v6.log
+          if grep -Eq '(SCRIPT ERROR|Parse Error|V6 FAILED)' /tmp/godot-v6.log; then exit 1; fi
+
       - name: Export signed debug APK
         shell: bash
         env:
@@ -287,4 +317,5 @@ jobs:
             /tmp/godot-v1.log
             /tmp/godot-v2.log
             /tmp/godot-v5.log
+            /tmp/godot-v6.log
           if-no-files-found: ignore

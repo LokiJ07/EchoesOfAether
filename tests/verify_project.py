@@ -23,12 +23,12 @@ workflow=(r/'.github/workflows/android-apk.yml').read_text()
 for required in ['--export-debug Android', 'actions/upload-artifact@v4', 'GODOT_VERSION: "4.5.2"', 'editor_settings-4.5.tres']:
     assert required in workflow, f"Missing CI integration: {required}"
 assert 'GITHUB_RUN_NUMBER' in workflow and 'APKSIGNER' in workflow, "Missing Android update metadata/signature checks"
-for symbol in ['func open_cache(', 'func unlock_rune(', 'func register_hunt(', 'func nearby_cache_index(', 'func update_floating_text(', 'save_version": V5_SAVE_VERSION']:
+for symbol in ['func open_cache(', 'func unlock_rune(', 'func register_hunt(', 'func nearby_cache_index(', 'func update_floating_text(', 'save_version": V6_SAVE_VERSION']:
     assert symbol in contents, f"Missing Relic Hunters gameplay: {symbol}"
 hud=(r/'scripts/HUD.gd').read_text()
 for symbol in ['func draw_trainer(', 'func draw_boss_health(', 'func draw_dash_button(']:
     assert symbol in hud, f"Missing Relic Hunters UI: {symbol}"
-for symbol in ["func guard(", "func trigger_guard_counter(", "combo_stage", "mastery_rewards", '"save_version": V5_SAVE_VERSION']:
+for symbol in ["func guard(", "func trigger_guard_counter(", "combo_stage", "mastery_rewards", '"save_version": V6_SAVE_VERSION']:
     assert symbol in contents, f"Missing v0.6 combat system: {symbol}"
 for symbol in ["func editor_touch_press(", "func editor_touch_drag(", "func editor_touch_release(", "func reset_control_layout(", "func save_control_layout(", "user://aether_controls.json", "func draw_hud_editor("]:
     assert symbol in hud, f"Missing v0.6 control customization: {symbol}"
@@ -38,7 +38,7 @@ assert 'window/stretch/aspect="expand"' in (r/'project.godot').read_text(), "Ult
 assert 'screen/support_small=true' in preset, "Small Android screens must be supported"
 assert 'func safe_layout_rect(' in hud and 'func default_control_centers_for(' in hud, "Missing adaptive HUD layout"
 assert 'func active_control_scale(' in hud, "Touch target size must scale with viewport"
-assert 'WORLD_WIDTH := 62500.0' in contents
+assert 'WORLD_WIDTH := 83300.0' in contents
 for symbol in ['func portal_jump(', 'func nearby_portal_index(', 'func active_boss_info(', 'func draw_expansion_scenery(', 'func draw_expansion_scenery(', 'func go_expansion_world(', 'func update_moving_platforms(', 'func expansion_quest_label(']:
     assert symbol in contents, f"Missing World Expansion mechanic: {symbol}"
 for symbol in ['func draw_portal_network(', 'func draw_world_map(', 'func draw_realm_victory(']:
@@ -48,7 +48,7 @@ assert 'tests/world_expansion.gd' in workflow
 print("PASS: World Expansion regions, fullscreen stretch, portal UI and Godot tests")
 print("PASS: referenced assets, Android CI build/export, and landscape orientation")
 
-for symbol in ["func nearby_shrine_index(", "func open_echo_puzzle(", "func choose_echo_rune(", "func leave_echo_puzzle(", "func hero_animation_params(", "func load_realm_backdrops(", "func load_visual_preferences(", '"save_version": V5_SAVE_VERSION']:
+for symbol in ["func nearby_shrine_index(", "func open_echo_puzzle(", "func choose_echo_rune(", "func leave_echo_puzzle(", "func hero_animation_params(", "func load_realm_backdrops(", "func load_visual_preferences(", '"save_version": V6_SAVE_VERSION']:
     assert symbol in contents, f"Missing v1 Awakening feature: {symbol}"
 for symbol in ["func draw_echo_puzzle(", "func draw_main_menu(", "func draw_dialogue("]:
     assert symbol in hud, f"Missing v1 interactive UI: {symbol}"
@@ -71,7 +71,7 @@ for asset in asset_names:
     assert (r/"assets"/asset).is_file(), f"Missing actual in-game art: {asset}"
 for required_symbol in ["EMBER_START", "CINDER_VAULT_START", "func open_ember_brazier(", "func select_ember_rune(",
     "func rescue_emberling(", "func update_emberling(", "func register_ember_hunt(", "func load_ember_art(",
-    "func mobile_action_at(", "func hud_event_position(", '"save_version": V5_SAVE_VERSION']:
+    "func mobile_action_at(", "func hud_event_position(", '"save_version": V6_SAVE_VERSION']:
     assert required_symbol in contents, f"Missing v2 implementation: {required_symbol}"
 for ui_symbol in ["func draw_ember_puzzle(", "func draw_ember_victory(", "func draw_portal_network(", "SHATTERED   R E A L M S"]:
     # The redesigned menu intentionally uses separate letter spacing.
@@ -125,3 +125,27 @@ assert 'func load_v5_generated_art(' in contents
 assert 'v5_art.get(art_name.trim_prefix("v5_generated_"), null)' in contents
 assert 'seven original offline generated realm backgrounds' in workflow
 print("PASS: seven original offline locally generated game panoramas")
+
+# v6: 27 genuinely instantiated portal rooms, 46 real RPG quest rows and
+# four interactive puzzle modes with distinct transparent rewards/checkpoints.
+new_rooms = ["root_gallery","prism_annex","wind_observatory","bog_lanterns",
+    "forge_engine","tide_control","seed_arbor","nexus_memory"]
+assert "const TRIALS" in catalog and '"id": "q46"' in catalog
+for id in new_rooms:
+    packed = r/"scenes"/"realms"/(id + ".tscn")
+    assert packed.is_file() and 'realm_id = "'+id+'"' in packed.read_text()
+    assert '"id": "' + id + '"' in catalog, "Missing trial region " + id
+    art = [item for item in ["rootgallery","prismannex","windobservatory","boglanterns",
+        "forgeengine","tidecontrol","seedarbor","nexusmemory"] if ('v6_generated_'+item) in catalog]
+    assert len(art) >= 8
+    assert (r/"scripts/PuzzleEngine.gd").is_file()
+for name in ["rootgallery","prismannex","windobservatory","boglanterns","forgeengine","tidecontrol","seedarbor","nexusmemory"]:
+    assert (r/"assets"/("v6_generated_"+name+".png")).is_file(), "Missing actual v6 room art "+name
+for symbol in ["V6_SAVE_VERSION := 60","func open_trial_puzzle(", "func press_trial_cell(", "func leave_trial_puzzle(",
+    "func load_v6_generated_art(", "func trial_side_room(", "trial_completed"]:
+    assert symbol in contents
+for symbol in ["func draw_v6_puzzle(", '"v6_hint"', '"v6_leave"']:
+    assert symbol in hud
+assert (r/"tests/v6_deep_realms.gd").is_file()
+assert "tests/v6_deep_realms.gd" in workflow and "tools/build_v6_art.py" in workflow
+print("PASS: v6 has eight unique deep dungeon rooms, 46 quests, 4 puzzles and original art")

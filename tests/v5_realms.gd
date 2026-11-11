@@ -27,7 +27,7 @@ func run_tests() -> void:
 		var tex: Texture2D = game.v5_art.get(scene_id, null)
 		if not ok(tex != null and tex.get_width() == 1600 and tex.get_height() == 720, "Distinct panorama texture imported for " + scene_id): return
 	print("PASS: seven original offline generated realm backgrounds directly imported into Godot")
-	if not ok(catalog.REGIONS.size() == 19 and catalog.QUESTS.size() >= 30, "19 real scenes and 30 quests configured"): return
+	if not ok(catalog.REGIONS.size() >= 27 and catalog.QUESTS.size() >= 46, "19 real scenes and 30 quests configured"): return
 	if not ok(catalog.DUNGEON_BOSSES.size() == 8 and game.current_realm_id == "hub", "Dungeon guardians configured and hub scene active"): return
 	for entry in catalog.REGIONS:
 		var path: String = "res://scenes/realms/%s.tscn" % entry["id"]

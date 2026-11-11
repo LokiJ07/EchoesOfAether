@@ -2,9 +2,11 @@ extends Node2D
 ## Echoes of Aether: offline, mobile-first, self-contained action adventure.
 ## All gameplay is simulated in world space. HUD stays in CanvasLayer screen space.
 
-const WORLD_WIDTH := 62500.0
+const WORLD_WIDTH := 83300.0
 const REALM_CATALOG = preload("res://scripts/RealmCatalog.gd")
 const V5_SAVE_VERSION := 50
+const V6_SAVE_VERSION := 60
+const PUZZLE_ENGINE = preload("res://scripts/PuzzleEngine.gd")
 const NEW_BOSSES = ["root_colossus", "mirror_keeper", "gale_wyrm", "mire_reaver",
 	"echo_archon", "abyss_leviathan", "thornheart", "nexus_echo"]
 const EMBER_START := 15800.0
@@ -146,6 +148,12 @@ var reduced_motion := false
 var realm_backdrops: Dictionary = {}
 var ember_art: Dictionary = {}
 var v5_art: Dictionary = {}
+var v6_art: Dictionary = {}
+var trial_completed: Array = []
+var trial_puzzle: Dictionary = {}
+var trial_puzzle_id := ""
+var trial_hint_text := ""
+var trial_preview_time := 0.0
 var ember_boss_defeated := false
 var ember_braziers: Array = []
 var ember_puzzle_index := -1
@@ -200,6 +208,7 @@ func _ready() -> void:
 	load_realm_backdrops()
 	load_ember_art()
 	load_v5_generated_art()
+	load_v6_generated_art()
 	load_realm_stage("hub")
 	camera.position = Vector2(575, 316)
 	camera.make_current()
@@ -248,6 +257,19 @@ func load_v5_generated_art() -> void:
 			var resource: Resource = load(image_path)
 			if resource is Texture2D:
 				v5_art[name] = resource
+
+func load_v6_generated_art() -> void:
+	# Unique locally-produced, offline dungeon annex art, not runtime web images.
+	for trial in REALM_CATALOG.TRIALS:
+		var texture_name: String = str(REALM_CATALOG.TRIALS[trial]["art"])
+		var path: String = "res://assets/%s.png" % texture_name
+		if ResourceLoader.exists(path):
+			var resource: Resource = load(path)
+			if resource is Texture2D:
+				v6_art[trial] = resource
+
+func v6_art_for(id: String) -> Texture2D:
+	return v6_art.get(id, null) as Texture2D
 
 func load_ember_art() -> void:
 	var ids: Array = ["citadel", "dungeon", "cinder_warden", "fire_imp", "emberling",
@@ -408,6 +430,24 @@ func spawn_enemies() -> void:
 		add_enemy("sky_wisp", x)
 	for x in [44100.0, 45000.0, 45750.0, 47100.0, 48100.0, 50520.0, 51650.0, 53120.0, 54500.0, 56500.0, 58000.0]:
 		add_enemy("sentinel", x)
+	# Annexes contain new encounter packs so the side branches are gameplay,
+	# not empty background corridors. Enemy variants inherit real AI.
+	for trial_id in REALM_CATALOG.TRIALS:
+		var annex: Dictionary = REALM_CATALOG.region(str(trial_id))
+		var x0: float = float(annex["start"])
+		var family: String = str(REALM_CATALOG.TRIALS[trial_id]["theme"])
+		var roster: Array = {
+			"forest": ["moth", "beetle", "sentinel"],
+			"crystal": ["crystal_bug", "crystal_wisp", "sentinel"],
+			"sky": ["sky_wisp", "cloud_moth", "beetle"],
+			"marsh": ["bog_slime", "bog_wisp", "sentinel"],
+			"ember": ["fire_imp", "ash_knight", "ember_wisp"],
+			"abyss": ["tide_stalker", "coral_wisp", "sentinel"],
+			"garden": ["thorn_knight", "petal_moth", "wisp"],
+			"nexus": ["sky_wisp", "sentinel", "ash_knight"]
+		}.get(family, ["sentinel", "wisp", "beetle"])
+		for j in range(7):
+			add_enemy(str(roster[j % roster.size()]), x0 + 460.0 + float(j) * 285.0)
 	for kind in REALM_CATALOG.DUNGEON_BOSSES:
 		var location: Dictionary = REALM_CATALOG.region(str(kind))
 		if not location.is_empty() and not dungeon_clears.has(str(kind)):
@@ -446,6 +486,7 @@ func ground_y(x: float) -> float:
 func _physics_process(dt: float) -> void:
 	elapsed += dt
 	menu_drift += dt
+	trial_preview_time = maxf(0.0, trial_preview_time - dt)
 	healing_glow = maxf(0.0, healing_glow - dt)
 	level_up_glow = maxf(0.0, level_up_glow - dt)
 	hero_impact = maxf(0.0, hero_impact - dt)
@@ -1270,7 +1311,7 @@ func is_realm_unlocked(id: String) -> bool:
 	if id == "nexus": return dungeon_clears.has("verdant_vault")
 	var region: Dictionary = REALM_CATALOG.region(id)
 	if region.is_empty(): return false
-	if region["kind"] == "dungeon":
+	if region["kind"] in ["dungeon", "trial"]:
 		return is_realm_unlocked(str(region["parent"]))
 	return false
 
@@ -1317,13 +1358,93 @@ func advance_story_dialogue() -> void:
 		return
 	dialogue = str(story_queue.pop_front())
 
+func trial_side_room(id: String) -> String:
+	for trial in REALM_CATALOG.TRIALS:
+		if str(REALM_CATALOG.TRIALS[trial]["parent"]) == id:
+			return str(trial)
+	return ""
+
+func nearby_trial_pedestal() -> bool:
+	var info: Dictionary = current_realm()
+	if str(info.get("kind", "")) != "trial" or trial_completed.has(current_realm_id):
+		return false
+	var x: float = float(info["start"]) + 1530.0
+	return absf(player_pos.x - x) < 116.0 and absf(player_pos.y - FLOOR_Y) < 130.0
+
+func open_trial_puzzle() -> bool:
+	if state != "playing" or not nearby_trial_pedestal():
+		return false
+	var info: Dictionary = REALM_CATALOG.TRIALS.get(current_realm_id, {})
+	if info.is_empty(): return false
+	trial_puzzle_id = current_realm_id
+	trial_puzzle = PUZZLE_ENGINE.make(trial_puzzle_id, str(info["type"]))
+	trial_hint_text = "NO TIME LIMIT • HINTS AVAILABLE • EXIT ANYTIME"
+	trial_preview_time = 4.5
+	touch_axis = 0.0
+	joystick_touch = -1
+	attack_touch.clear()
+	hold_attack = false
+	state = "v6_puzzle"
+	return true
+
+func press_trial_cell(cell: int) -> bool:
+	if state != "v6_puzzle" or trial_puzzle.is_empty(): return false
+	var changed: bool = PUZZLE_ENGINE.press(trial_puzzle, cell)
+	if changed and bool(trial_puzzle.get("solved", false)):
+		finish_trial_puzzle()
+	return changed
+
+func trial_hint() -> void:
+	if state != "v6_puzzle": return
+	trial_hint_text = PUZZLE_ENGINE.hint(trial_puzzle)
+	trial_preview_time = 3.5
+
+func trial_restart() -> void:
+	if state != "v6_puzzle": return
+	trial_puzzle = PUZZLE_ENGINE.make(trial_puzzle_id, str(REALM_CATALOG.TRIALS[trial_puzzle_id]["type"]))
+	trial_preview_time = 4.5
+	trial_hint_text = "PUZZLE RESTARTED. NO DAMAGE OR RESOURCE COST."
+
+func leave_trial_puzzle() -> void:
+	trial_puzzle_id = ""
+	trial_puzzle.clear()
+	trial_preview_time = 0.0
+	trial_hint_text = ""
+	state = "playing"
+	touch_axis = 0.0
+	update_camera()
+
+func finish_trial_puzzle() -> void:
+	if trial_puzzle_id == "" or trial_completed.has(trial_puzzle_id):
+		leave_trial_puzzle()
+		return
+	var cleared: String = trial_puzzle_id
+	var info: Dictionary = REALM_CATALOG.TRIALS[cleared]
+	trial_completed.append(cleared)
+	var rewards: int = int(info.get("reward", 105))
+	coins += rewards
+	relic_shards += 1
+	gain_exp(100)
+	record_quest_event("trial:" + cleared)
+	leave_trial_puzzle()
+	level_up_glow = 1.1
+	spawn_dust(player_pos + Vector2(0.0, -80.0), Color("a4f9e1"), 18)
+	show_message("CHAMBER RESTORED! +%d COINS & 1 RELIC SHARD" % rewards, 4.0)
+	save_game()
+
 func nearby_stage_portal() -> String:
 	if portal_cooldown > 0.0: return ""
 	var region: Dictionary = current_realm()
 	if region.is_empty(): return ""
 	var start_gate: float = 1720.0 if current_realm_id == "hub" else float(region["start"]) + 145.0
 	if absf(player_pos.x - start_gate) < 69.0 and absf(player_pos.y - FLOOR_Y) < 142.0:
-		return "network" if region["kind"] != "dungeon" else str(region["parent"])
+		return str(region["parent"]) if region["kind"] in ["dungeon", "trial"] else "network"
+	if region["kind"] == "dungeon":
+		var side_id: String = trial_side_room(current_realm_id)
+		if side_id != "":
+			var side_gate_x: float = float(region["start"]) + (float(region["end"]) - float(region["start"])) * 0.58
+			if absf(player_pos.x - side_gate_x) < 74.0 and absf(player_pos.y - FLOOR_Y) < 135.0:
+				return side_id
 	if region["kind"] == "realm" and str(region["dungeon"]) != "":
 		var dungeon_gate: float = float(region["end"]) - 85.0
 		if absf(player_pos.x - dungeon_gate) < 55.0 and absf(player_pos.y - FLOOR_Y) < 140.0:
@@ -1556,6 +1677,7 @@ func hero_animation_params() -> Dictionary:
 
 func nearby_npc() -> String:
 	if nearby_stage_portal() != "": return "portal"
+	if nearby_trial_pedestal(): return "trial_puzzle"
 	if nearby_story_npc(): return "story"
 	if nearby_portal_index() >= 0: return "portal"
 	if nearby_ember_brazier() >= 0: return "ember_brazier"
@@ -1570,6 +1692,9 @@ func nearby_npc() -> String:
 
 func interact() -> void:
 	if state != "playing": return
+	if nearby_trial_pedestal():
+		open_trial_puzzle()
+		return
 	var stage_gate: String = nearby_stage_portal()
 	if stage_gate != "":
 		if stage_gate == "network":
@@ -1701,6 +1826,9 @@ func start_new_game() -> void:
 	floating_text.clear()
 	portal_unlocked = [true, false, false, false, false]
 	current_realm_id = "hub"
+	trial_completed.clear()
+	trial_puzzle.clear()
+	trial_puzzle_id = ""
 	quest_counts.clear()
 	quest_claimed.clear()
 	discovered_realm_ids = ["hub"]
@@ -1774,11 +1902,12 @@ func save_game() -> void:
 		"emberling_unlocked": emberling_unlocked, "emberling_active": emberling_active,
 		"ember_hunts": ember_hunt_counts, "ember_hunt_claimed": ember_hunt_claimed,
 		"active_realm": current_realm_id, "quest_counts": quest_counts,
+		"trial_completed": trial_completed,
 		"tracked_quest_id": tracked_quest_id,
 		"quest_claimed": quest_claimed, "discovered_realms": discovered_realm_ids,
 		"dungeon_clears": dungeon_clears, "story_seen": story_seen,
 		"kill_counts": enemy_kill_counts, "map_visits": map_visit_counts,
-		"save_version": V5_SAVE_VERSION}
+		"save_version": V6_SAVE_VERSION}
 	var file = FileAccess.open("user://aether_save.json", FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(values))
@@ -1893,6 +2022,15 @@ func load_game() -> bool:
 	if not quest_counts is Dictionary: quest_counts = {}
 	quest_claimed = data.get("quest_claimed", [])
 	if not quest_claimed is Array: quest_claimed = []
+	trial_completed.clear()
+	var saved_trials = data.get("trial_completed", [])
+	if saved_trials is Array:
+		for id in saved_trials:
+			var trial_id: String = str(id)
+			if REALM_CATALOG.TRIALS.has(trial_id) and not trial_completed.has(trial_id):
+				trial_completed.append(trial_id)
+	trial_puzzle_id = ""
+	trial_puzzle.clear()
 	tracked_quest_id = str(data.get("tracked_quest_id", ""))
 	if tracked_quest_id != "":
 		var known: bool = false
@@ -1959,6 +2097,7 @@ func _input(event: InputEvent) -> void:
 				hud.save_control_layout()
 				state = "settings"
 			elif state == "puzzle": leave_echo_puzzle()
+			elif state == "v6_puzzle": leave_trial_puzzle()
 			elif state == "ember_puzzle": leave_ember_puzzle()
 			elif state == "ember_victory": state = "playing"
 			elif state in ["dungeon_victory", "v5_victory"]: state = "playing"
@@ -2097,6 +2236,8 @@ func _draw() -> void:
 				tex = ember_art.get(art_name.trim_prefix("v2_"), null)
 			elif art_name.begins_with("v5_generated_"):
 				tex = v5_art.get(art_name.trim_prefix("v5_generated_"), null)
+			elif art_name.begins_with("v6_generated_"):
+				tex = v6_art_for(str(data["id"]))
 			elif ResourceLoader.exists("res://assets/%s.png" % art_name):
 				tex = load("res://assets/%s.png" % art_name)
 			if tex != null and graphics_quality > 0:

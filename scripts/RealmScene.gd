@@ -24,7 +24,13 @@ func _draw() -> void:
 	var hue: Color = Color(str(info["sky"]))
 	var gate_x: float = 1720.0 if realm_id == "hub" else start + 145.0
 	if absf(middle - gate_x) < half_width:
-		_draw_portal(gate_x, hue, "TRAVEL" if info["kind"] != "dungeon" else "EXIT DUNGEON")
+		_draw_portal(gate_x, hue, "EXIT CHAMBER" if info["kind"] == "trial" else ("EXIT DUNGEON" if info["kind"] == "dungeon" else "TRAVEL"))
+	if info["kind"] == "dungeon":
+		var side_id: String = game.trial_side_room(realm_id)
+		if side_id != "":
+			var side_x: float = start + (end - start) * 0.58
+			if absf(middle - side_x) < half_width:
+				_draw_portal(side_x, Color("c7a3fc"), "SECRET ANNEX")
 	if info["kind"] == "realm" and str(info["dungeon"]) != "":
 		var deep_gate: float = end - 85.0
 		if absf(middle - deep_gate) < half_width:
@@ -34,7 +40,22 @@ func _draw() -> void:
 		if absf(middle - npc_x) < half_width:
 			draw_texture_rect(NPC, Rect2(npc_x - 23.0, 433.0, 46.0, 67.0), false, hue.lightened(0.5))
 			_draw_text(Vector2(npc_x - 49.0, 412.0), "STORY", Color("f0d4a7"))
-	if info["kind"] == "dungeon":
+	if info["kind"] == "trial":
+		var altar_x: float = start + 1530.0
+		if absf(middle - altar_x) < half_width:
+			var restored: bool = game.trial_completed.has(realm_id)
+			var gl: Color = Color("ffd78d") if restored else Color("7af9e4")
+			draw_circle(Vector2(altar_x, 383.0), 95.0, Color(gl.r, gl.g, gl.b, 0.13))
+			draw_rect(Rect2(altar_x - 53, 449, 106, 49), Color("342b4b"))
+			draw_rect(Rect2(altar_x - 60, 440, 120, 15), gl)
+			draw_colored_polygon(PackedVector2Array([Vector2(altar_x, 308),Vector2(altar_x - 47, 377),Vector2(altar_x, 427),Vector2(altar_x + 47, 377)]), Color(gl.r, gl.g, gl.b, 0.83))
+			_draw_text(Vector2(altar_x - 67, 281), "SEAL RESTORED" if restored else "INTERACTIVE PUZZLE", Color("ffe7b8"))
+		for i in range(12):
+			var x: float = start + 290.0 + float(i) * 176.0
+			if absf(middle - x) > half_width or x > end - 70.0: continue
+			draw_rect(Rect2(x - 14, 190 + float(i % 2)*32.0, 28, 300), Color(hue.r * 0.50, hue.g * 0.50, hue.b * 0.57, 0.83))
+			draw_circle(Vector2(x, 186 + float(i % 2)*32.0), 14.0, hue.lightened(0.4))
+	elif info["kind"] == "dungeon":
 		for i in range(10):
 			var x: float = start + 365.0 + float(i) * 276.0
 			if absf(middle - x) > half_width or x > end - 150: continue

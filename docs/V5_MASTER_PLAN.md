@@ -75,3 +75,10 @@ Dungeon content is one connected area per instance at this milestone, with real 
 If Higgsfield generation credits are unavailable, the CI produces seven self-contained original panoramas with `tools/build_v5_art.py` using Pillow. They are committed as `assets/v5_generated_*.png` and loaded/cached in the Godot renderer for Abyssal, Tide Temple, Everdawn, Verdant Vault, Aether Nexus, Nexus Core and Rootbound Crypt. The offline test suite verifies the exact image paths, dimensions and scene-to-texture bindings. This removes the placeholder-reused backgrounds in those seven locations without adding any external runtime dependency.
 
 The four high-resolution concept pictures made in chat show a richer future art direction; they are **not** the exact procedural PNGs in the APK. Real Pixel-Art sprite polish, parallax animation, and physical-phone visual acceptance remain necessary before declaring the art final.
+
+
+## v6 Deep Realms: playable annex milestone
+
+Eight independent bonus dungeon scenes and sixteen extra quest entries extend the original chapter. Side portals at the midpoint of Rootbound Crypt, Mirror Vault, Gale Spire, Mire Catacombs, Cinder Vault, Tide Temple, Verdant Sanctum and the Nexus Core lead to unique-themed annexes with distinctive original art, enemy encounters, NPC story beats, and one optional puzzle pedestal per annex.
+
+The new `PuzzleEngine.gd` supplies four genuinely different mechanics: sliding-image assembly, reciprocal rotated light connections, three-dial constraint solving, and watched/repeated memory symbols. All support hint, restart and instant exit. Save migration is incremental with version 60 and preserves old progress/custom controls. This is a playable new dungeon-system milestone, **not** a claim that every realm now has a sprawling multi-floor AAA dungeon or that the generated premium concept paintings were successfully uploaded.

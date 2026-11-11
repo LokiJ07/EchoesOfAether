@@ -195,6 +195,10 @@ func handle_menu_press(pos: Vector2) -> bool:
 		if code.begins_with("realm:"):
 			game.enter_realm(code.trim_prefix("realm:"))
 			return true
+		if code.begins_with("v6_cell:"):
+			game.press_trial_cell(int(code.trim_prefix("v6_cell:")))
+			queue_redraw()
+			return true
 		if code.begins_with("pin:"):
 			var id: String = code.trim_prefix("pin:")
 			if game.tracked_quest_id == id:
@@ -251,6 +255,9 @@ func handle_menu_press(pos: Vector2) -> bool:
 			"ember_leave": game.leave_ember_puzzle()
 			"emberling": game.toggle_emberling()
 			"ember_explore": game.state = "playing"
+			"v6_hint": game.trial_hint()
+			"v6_restart": game.trial_restart()
+			"v6_leave": game.leave_trial_puzzle()
 			"explore_world": game.go_expansion_world()
 			"explore_again": game.state = "playing"
 			"train0": game.unlock_rune(0)
@@ -395,6 +402,9 @@ func _draw() -> void:
 	if game.state == "main":
 		draw_main_menu(w, h)
 		return
+	if game.state == "v6_puzzle":
+		draw_v6_puzzle(w, h)
+		return
 	if game.state == "puzzle":
 		draw_echo_puzzle(w, h)
 		return
@@ -502,7 +512,7 @@ func draw_mobile_controls(w: float, h: float) -> void:
 	control_button(c["potion"], 37, "+", "POTION %d" % game.potions, Color("f5a2a2"))
 	if game.nearby_npc() != "" or game.state == "hud_edit":
 		var target: String = game.nearby_npc()
-		var label: String = "SOLVE" if target in ["shrine", "ember_brazier"] else ("RESCUE" if target == "emberling" else ("TRAVEL" if target == "portal" else ("OPEN" if target == "cache" else ("TRAIN" if target == "scout" else ("SHOP" if target == "merchant" else "TALK")))))
+		var label: String = "SOLVE" if target in ["shrine", "ember_brazier", "trial_puzzle"] else ("RESCUE" if target == "emberling" else ("TRAVEL" if target == "portal" else ("OPEN" if target == "cache" else ("TRAIN" if target == "scout" else ("SHOP" if target == "merchant" else "TALK")))))
 		control_button(c["interact"], 40, "!", label, Color("f3db98"))
 
 func modal(w: float, h: float, heading: String, width: float = 650.0, height: float = 470.0) -> Rect2:
@@ -779,6 +789,99 @@ func draw_ember_victory(w: float, h: float) -> void:
 	centered(w * 0.5, panel.position.y + 119, "The Cinder Warden has fallen. The vault is safe!", 18, Color("f9e3ba"))
 	centered(w * 0.5, panel.position.y + 155, "+350 COINS  •  +3 RELIC SHARDS  •  +25 MAX HP", 15, Color("9de7d9"))
 	menu_button(Rect2(w * 0.5 - 211.0, panel.end.y - 91.0, 422.0, 55.0), "CONTINUE EXPLORING", "ember_explore", Color("93e4c7"))
+
+func draw_v6_puzzle(w: float, h: float) -> void:
+	# Dedicated puzzle UX: separate mechanics and safe exit, never a gameplay HUD
+	# overlay. Gameplay physics are paused while this screen is visible.
+	var panel_w: float = minf(925.0, w - 34.0)
+	var panel_h: float = minf(552.0, h - 25.0)
+	var box_rect: Rect2 = modal(w, h, "DEEP REALMS — CHAMBER TRIAL", panel_w, panel_h)
+	var data: Dictionary = game.trial_puzzle
+	if data.is_empty(): return
+	var kind: String = str(data.get("kind", ""))
+	var chamber: Dictionary = game.REALM_CATALOG.TRIALS.get(game.trial_puzzle_id, {})
+	var name: String = str(chamber.get("name", "HIDDEN CHAMBER"))
+	centered(w * 0.5, box_rect.position.y + 81.0, name, 21, Color("f5d7a7"))
+	centered(w * 0.5, box_rect.position.y + 106.0,
+		{"mosaic": "REASSEMBLE THE BROKEN WORLD MAP", "circuit": "CONNECT THE ENERGY BEAM", "logic": "SOLVE THREE BALANCED EQUATIONS",
+		"memory": "MEMORIZE AND REPEAT THE GLYPHS"}.get(kind, "SOLVE THE CHAMBER"), 15, Color("a7e9df"))
+	var tile: float = minf(85.0, (panel_h - 212.0) / 3.0)
+	var gap: float = 7.0
+	var grid_left: float = box_rect.position.x + 68.0
+	var grid_top: float = box_rect.position.y + 131.0
+	var accent: Color = Color("7fe7d9")
+	if kind in ["mosaic", "circuit"]:
+		for i in range(9):
+			var xx: float = grid_left + float(i % 3) * (tile + gap)
+			var yy: float = grid_top + float(int(i / 3)) * (tile + gap)
+			var r: Rect2 = Rect2(xx, yy, tile, tile)
+			var mask: int = 0
+			box(r, Color("15293c"), Color("84c7c7"), 2.0)
+			if kind == "mosaic":
+				var index: int = int(data["tiles"][i])
+				if index > 0:
+					var art: Texture2D = game.v6_art_for(game.trial_puzzle_id)
+					if art != null:
+						var srcw: float = float(art.get_width()) / 3.0
+						var srch: float = float(art.get_height()) / 3.0
+						var source: Rect2 = Rect2(float((index - 1) % 3) * srcw, float(int((index - 1) / 3)) * srch, srcw, srch)
+						draw_texture_rect_region(art, Rect2(xx + 4, yy + 4, tile - 8, tile - 8), source, Color(0.9, 0.99, 1.0, 0.94))
+					else:
+						draw_rect(Rect2(xx + 4, yy + 4, tile - 8, tile - 8), Color("316e81"))
+					centered(xx + tile * 0.5, yy + tile * 0.65, str(index), 23, Color("fff3ca"))
+			else:
+				mask = game.PUZZLE_ENGINE.rotate_mask(int(game.PUZZLE_ENGINE.BASE_PIPES[i]), int(data["rotations"][i]))
+				var center: Vector2 = Vector2(xx + tile * 0.5, yy + tile * 0.5)
+				if mask == 0:
+					draw_circle(center, 6.0, Color("405969"))
+				else:
+					draw_circle(center, 9.0, Color("f6e7a2"))
+					for bit in [1, 2, 4, 8]:
+						if (mask & bit) != 0:
+							var vector: Vector2 = {1: Vector2.UP, 2: Vector2.RIGHT, 4: Vector2.DOWN, 8: Vector2.LEFT}[bit]
+							draw_line(center, center + vector * tile * 0.40, Color("8afaf0"), 11.0, true)
+			if kind == "mosaic" or mask != 0:
+				menu_buttons.append({"rect": r, "key": "v6_cell:%d" % i})
+		if kind == "circuit":
+			centered(grid_left + tile * 1.5 + gap, grid_top + tile * 3 + 28, "LIGHT IN <         > LIGHT OUT", 15, Color("fbdba4"))
+	elif kind == "logic":
+		var vals: Array = data["dials"]
+		for i in range(3):
+			var rx: float = grid_left + float(i) * (tile + 30.0)
+			menu_button(Rect2(rx, grid_top + 35.0, tile + 18.0, 95.0),
+				"%s %d" % [["LEFT", "MID", "RIGHT"][i], int(vals[i])], "v6_cell:%d" % i, Color("aacfff"))
+		var cl: Array = data["clues"]
+		text(Vector2(grid_left, grid_top + 175), "LEFT + MID = %d" % int(cl[0]), 17, Color("ffe2a5"))
+		text(Vector2(grid_left, grid_top + 200), "MID + RIGHT = %d" % int(cl[1]), 17, Color("ffe2a5"))
+		text(Vector2(grid_left, grid_top + 225), "LEFT + RIGHT = %d" % int(cl[2]), 17, Color("ffe2a5"))
+	elif kind == "memory":
+		var colours: Array = ["SUN", "MOON", "STAR", "FLAME"]
+		for i in range(4):
+			var rx: float = grid_left + float(i) * (tile * 0.84 + 9.0)
+			menu_button(Rect2(rx, grid_top + 110.0, tile * 0.82, 87.0), str(colours[i]),
+				"v6_cell:%d" % i, [Color("ffe4a5"), Color("c5d4fe"), Color("a8ece3"), Color("f9a481")][i])
+		var preview: String = "HIDDEN — REPEAT FROM MEMORY"
+		if game.trial_preview_time > 0.0:
+			preview = ""
+			for glyph in data["sequence"]:
+				preview += str(colours[int(glyph)]) + "   "
+		centered(grid_left + 181.0, grid_top + 63.0, preview, 13, Color("ffdcad"))
+		centered(grid_left + 183.0, grid_top + 239.0, "CORRECT: %d / %d" % [int(data["progress"]), data["sequence"].size()], 17, Color("a8f2cf"))
+	var info_x: float = box_rect.position.x + panel_w * 0.57
+	var info_y: float = grid_top + 18.0
+	text(Vector2(info_x, info_y), "CHAMBER RULES", 20, Color("f4d9a4"))
+	text(Vector2(info_x, info_y + 40.0), "NO TIMER / NO DAMAGE", 16, Color("a9e8d0"))
+	text(Vector2(info_x, info_y + 74.0), "EXIT ANYTIME", 17, Color("a9e8d0"))
+	text(Vector2(info_x, info_y + 109.0), "1 RELIC + COINS", 16, Color("f0d8a8"))
+	text(Vector2(info_x, info_y + 151.0), "MOVES: %d" % int(data["moves"]), 17, Color("a9e8d0"))
+	var info_message: String = str(game.trial_hint_text)
+	if info_message == "": info_message = str(data["message"])
+	centered(w * 0.5, box_rect.end.y - 113.0, info_message, 14, Color("bee9df"))
+	var footer_w: float = (panel_w - 95.0) / 3.0
+	for i in range(3):
+		menu_button(Rect2(box_rect.position.x + 28.0 + float(i) * (footer_w + 18.0),
+			box_rect.end.y - 82.0, footer_w, 52.0), ["HINT", "RESTART", "EXIT CHAMBER"][i],
+			["v6_hint", "v6_restart", "v6_leave"][i], [Color("a4e8df"), Color("b7bcff"), Color("f4b0a5")][i])
 
 func draw_hud_editor(w: float, h: float) -> void:
 	# Editor displays actual mobile controls over the world; drag a control to relocate it.
